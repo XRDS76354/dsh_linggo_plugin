@@ -87,7 +87,19 @@ def query(req):
     return q(req)
 
 
-COMMANDS = {"doctor": doctor, "inspect": inspect, "preview": preview, "ingest": ingest, "query": query}
+def algorithms(req):
+    from .algo import describe
+
+    return describe(req)
+
+
+def run(req):
+    from .algo import run as r
+
+    return r(req, progress)
+
+
+COMMANDS = {"doctor": doctor, "inspect": inspect, "preview": preview, "ingest": ingest, "query": query, "algorithms": algorithms, "run": run}
 
 
 def main():

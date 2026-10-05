@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Replay, buildOverlay, drawOverlay, overlayBox, positionAt, vehicleColor } from "./analysis.jsx";
 const h = React.createElement;
 
 export const dataStyle = `
@@ -449,7 +450,7 @@ function loadAmap(key, code) {
   return amapLoading;
 }
 
-export function MapView({ t, api, project, versionId }) {
+export function MapView({ t, api, project, versionId, runId, onRun }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [focus, setFocus] = useState(null); // {routeId, directions?} | {stopId}
@@ -457,6 +458,28 @@ export function MapView({ t, api, project, versionId }) {
   const [actions, setActions] = useState([]);
   const [engine, setEngine] = useState("canvas");
   const [settings, setSettings] = useState(null);
+  const [overlay, setOverlay] = useState(null);
+  const [time, setTime] = useState(0);
+
+  // An algorithm result shown as a layer: vehicle tracks with a replay clock.
+  useEffect(() => {
+    setOverlay(null);
+    if (!runId) return;
+    let live = true;
+    api("runResult", { projectId: project, runId }).then(
+      ({ run, result }) => {
+        if (!live) return;
+        const o = buildOverlay(run, result);
+        setOverlay(o);
+        setTime(o.range ? o.range[0] : 0);
+        setFocus(null);
+      },
+      (e) => live && setError(e.message),
+    );
+    return () => {
+      live = false;
+    };
+  }, [project, runId]);
 
   useEffect(() => {
     setData(null);
@@ -491,8 +514,11 @@ export function MapView({ t, api, project, versionId }) {
   }, [project, versionId]);
 
   const applyAction = (a) => {
-    if (a.action === "clear" || a.action === "show_all") setFocus(a.action === "clear" ? null : { all: true, at: a.seq });
-    else setFocus({ ...a.target, at: a.seq });
+    if (a.action === "show_run") onRun?.(a.target.runId);
+    else if (a.action === "clear" || a.action === "show_all") {
+      setFocus(a.action === "clear" ? null : { all: true, at: a.seq });
+      if (a.action === "clear") onRun?.(null);
+    } else setFocus({ ...a.target, at: a.seq });
   };
 
   const model = useMemo(() => {
@@ -529,14 +555,16 @@ export function MapView({ t, api, project, versionId }) {
       "div",
       { className: "linggo-canvas", "aria-label": t("wb.map") },
       useAmap
-        ? h(AmapLayer, { t, model, focus, settings, onFail: () => (setEngine("canvas"), setError("")) })
-        : h(CanvasLayer, { model, focus, onPick: setFocus }),
+        ? h(AmapLayer, { t, model, focus, settings, overlay, time, onFail: () => (setEngine("canvas"), setError("")) })
+        : h(CanvasLayer, { model, focus, overlay, time, onPick: setFocus }),
       h(FocusTip, { t, model, focus }),
       h("span", { className: "linggo-maptag" }, useAmap ? t("map.amap") : t("map.canvas"), data.truncated ? " · " + t("map.truncated") : ""),
     ),
     h(
       "div",
       { className: "linggo-side" },
+      runId && !overlay && h("small", null, t("map.runLoading")),
+      overlay && h(Replay, { t, overlay, time, setTime, onClose: () => onRun?.(null) }),
       settings?.amapKey &&
         h(
           "select",
@@ -604,7 +632,8 @@ function FocusTip({ t, model, focus }) {
   return null;
 }
 
-function focusBox(model, focus) {
+function focusBox(model, focus, overlay) {
+  if (overlay && !focus) return overlayBox(overlay) ?? model.bbox;
   const pts = [];
   if (focus?.routeId) for (const l of model.lines) if (l.id === focus.routeId && (!focus.directions || focus.directions.includes(l.dir))) pts.push(...l.path);
   if (focus?.stopId) {
@@ -615,7 +644,7 @@ function focusBox(model, focus) {
   return [Math.min(...pts.map((p) => p[0])), Math.min(...pts.map((p) => p[1])), Math.max(...pts.map((p) => p[0])), Math.max(...pts.map((p) => p[1]))];
 }
 
-function CanvasLayer({ model, focus, onPick }) {
+function CanvasLayer({ model, focus, overlay, time, onPick }) {
   const ref = useRef(null);
   const view = useRef(null);
   const [tick, setTick] = useState(0);
@@ -641,10 +670,10 @@ function CanvasLayer({ model, focus, onPick }) {
   useEffect(() => {
     const c = ref.current;
     if (c && c.clientWidth) {
-      fit(focusBox(model, focus), c.clientWidth, c.clientHeight);
+      fit(focusBox(model, focus, overlay), c.clientWidth, c.clientHeight);
       redraw();
     }
-  }, [model, focus]);
+  }, [model, focus, overlay]);
 
   useEffect(() => {
     const c = ref.current;
@@ -666,7 +695,7 @@ function CanvasLayer({ model, focus, onPick }) {
       });
       g.stroke();
     };
-    const dim = focus && !focus.all;
+    const dim = (focus && !focus.all) || overlay;
     g.lineWidth = 1;
     g.strokeStyle = dim ? "#c9ccd2" : "#5b7fd6";
     g.globalAlpha = dim ? 0.6 : 0.55;
@@ -716,7 +745,8 @@ function CanvasLayer({ model, focus, onPick }) {
       g.arc(x, y, 6, 0, Math.PI * 2);
       g.fill();
     }
-  }, [tick, focus, model]);
+    if (overlay) drawOverlay(g, px, overlay, time);
+  }, [tick, focus, model, overlay, time]);
 
   // Pan by drag, zoom by wheel around the pointer, click picks the nearest stop.
   const drag = useRef(null);
@@ -774,10 +804,11 @@ function CanvasLayer({ model, focus, onPick }) {
   });
 }
 
-function AmapLayer({ t, model, focus, settings, onFail }) {
+function AmapLayer({ t, model, focus, settings, overlay, time, onFail }) {
   const ref = useRef(null);
   const map = useRef(null);
   const overlays = useRef([]);
+  const markers = useRef([]);
   const [ready, setReady] = useState(false);
   useEffect(() => {
     let disposed = false;
@@ -800,7 +831,7 @@ function AmapLayer({ t, model, focus, settings, onFail }) {
     if (!ready || !m) return;
     m.remove(overlays.current);
     const hit = (l) => focus?.routeId === l.id && (!focus.directions || focus.directions.includes(l.dir));
-    const shown = focus?.routeId ? model.lines.filter(hit) : model.lines.slice(0, 400);
+    const shown = focus?.routeId ? model.lines.filter(hit) : overlay ? [] : model.lines.slice(0, 400);
     const out = shown.map(
       (l, i) =>
         new AMap.Polyline({
@@ -815,9 +846,25 @@ function AmapLayer({ t, model, focus, settings, onFail }) {
       const s = model.stops.get(id);
       if (s) out.push(new AMap.CircleMarker({ center: gcj([s[2], s[3]]), radius: focus?.stopId ? 8 : 4, fillColor: "#fff", strokeColor: "#3c6df0", strokeWeight: 2, fillOpacity: 1, extData: s[1] }));
     }
+    if (overlay?.kind === "drt")
+      overlay.vehicles.slice(0, 300).forEach((v, i) =>
+        out.push(new AMap.Polyline({ path: v.track.map((x) => gcj(x.p)), strokeColor: vehicleColor(i), strokeWeight: 2, strokeOpacity: 0.6 })),
+      );
     m.add(out);
     overlays.current = out;
     if (out.length) m.setFitView(out, false, [40, 40, 40, 40]);
-  }, [ready, focus, model]);
+  }, [ready, focus, model, overlay]);
+  useEffect(() => {
+    const m = map.current, AMap = window.AMap;
+    if (!ready || !m) return;
+    m.remove(markers.current);
+    const out = [];
+    overlay?.vehicles.forEach((v, i) => {
+      const p = positionAt(v, time);
+      if (p) out.push(new AMap.CircleMarker({ center: gcj(p), radius: 6, fillColor: vehicleColor(i), strokeColor: "#fff", strokeWeight: 2, fillOpacity: 1 }));
+    });
+    m.add(out);
+    markers.current = out;
+  }, [ready, overlay, time]);
   return h("div", { ref, className: "linggo-amap", "aria-label": t("map.amap") });
 }

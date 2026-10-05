@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, open, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-export const SCHEMA = 2;
+export const SCHEMA = 3;
 const LOCK_STALE_MS = 30_000;
 const LOCK_WAIT_MS = 10_000;
 
@@ -38,6 +38,7 @@ export function migrate(state) {
     dataVersions: state.dataVersions ?? [],
     scenarios: state.scenarios ?? [],
     results: state.results ?? [],
+    algorithms: state.algorithms ?? [],
     jobs: state.jobs ?? [],
   };
 }
@@ -198,6 +199,43 @@ export class Store {
         throw Error("Unknown data version");
       project.currentVersionId = input.versionId;
       return project;
+    });
+  }
+
+  resultDir(projectId, runId) {
+    return join(this.root, "projects", projectId, "results", runId);
+  }
+
+  resultStaging(projectId, key) {
+    return join(this.root, "projects", projectId, "results", ".staging", key);
+  }
+
+  algorithmFile(projectId, algorithmId) {
+    return join(this.root, "projects", projectId, "algorithms", `${algorithmId}.py`);
+  }
+
+  async addResult(result) {
+    return this.update((state) => {
+      if (!state.projects.some((p) => p.id === result.projectId)) throw Error("Unknown project");
+      state.results.push(result);
+      return result;
+    });
+  }
+
+  async addAlgorithm(algorithm) {
+    return this.update((state) => {
+      if (!state.projects.some((p) => p.id === algorithm.projectId)) throw Error("Unknown project");
+      state.algorithms.push(algorithm);
+      return algorithm;
+    });
+  }
+
+  async removeAlgorithm(input) {
+    return this.update((state) => {
+      const item = state.algorithms.find((a) => a.id === input?.id && a.projectId === input?.projectId);
+      if (!item) throw Error("Unknown algorithm");
+      state.algorithms = state.algorithms.filter((a) => a !== item);
+      return item;
     });
   }
 

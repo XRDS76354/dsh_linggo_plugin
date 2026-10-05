@@ -34,7 +34,7 @@ test("schema 1 state migrates and newer schemas are refused", async (t) => {
   const root = await temp(t);
   await writeFile(join(root, "state.json"), JSON.stringify({ schema: 1, projects: [{ id: "p", name: "A" }], handoffs: [{ id: "h", projectId: "p", summary: "s" }] }));
   const state = await new Store(root).read();
-  assert.equal(state.schema, 2);
+  assert.equal(state.schema, 3);
   assert.equal(state.handoffs[0].devSessionId, null);
   await writeFile(join(root, "state.json"), JSON.stringify({ schema: 9 }));
   await assert.rejects(new Store(root).createProject({ name: "B" }), /newer/);

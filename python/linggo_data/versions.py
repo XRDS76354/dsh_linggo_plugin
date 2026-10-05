@@ -9,6 +9,7 @@ import pandas as pd
 from . import gtfs
 from .mapping import Mapper
 from .schema import ENTITIES, NEEDS
+from .geo import core
 from .sources import gtfs_dir, table
 
 MAP_ROUTE_LIMIT = 5000
@@ -231,15 +232,10 @@ def _extent(points, xs, ys):
     """Fit the stops near the network core, so a few misplaced stops do not shrink it to a corner."""
     if not xs:
         return None, []
-    if len(points) < 50:
-        return [min(xs), min(ys), max(xs), max(ys)], []
-    px = pd.Series([p[2] for p in points]).quantile([0.05, 0.95]).tolist()
-    py = pd.Series([p[3] for p in points]).quantile([0.05, 0.95]).tolist()
-    pad_x, pad_y = max(px[1] - px[0], 0.05), max(py[1] - py[0], 0.05)
-    inside = lambda p: px[0] - pad_x <= p[2] <= px[1] + pad_x and py[0] - pad_y <= p[3] <= py[1] + pad_y
-    core = [p for p in points if inside(p)]
-    outliers = [p[0] for p in points if not inside(p)]
-    return [min(p[2] for p in core), min(p[3] for p in core), max(p[2] for p in core), max(p[3] for p in core)], outliers
+    flags = core([p[2] for p in points], [p[3] for p in points])
+    inner = [p for p, ok in zip(points, flags) if ok]
+    outliers = [p[0] for p, ok in zip(points, flags) if not ok]
+    return [min(p[2] for p in inner), min(p[3] for p in inner), max(p[2] for p in inner), max(p[3] for p in inner)], outliers
 
 
 def query(req):

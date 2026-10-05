@@ -20,15 +20,15 @@
 | TSK-14 | 实现映射向导及智能体样例预览 | REQ-05 | design.md §D3 | 已验证（映射为规则建议，智能体不生成映射） | 浏览器验收 |
 | TSK-15 | 实现原子数据版本和失败回滚 | REQ-06 | design.md §D3 | 已验证 | 取消/故障测试 |
 | TSK-16 | 实现高德配置和线路站点图层 | REQ-07 | design.md §D4 | 画布已验证；高德已实现，待 Key 验证 | 坐标抽验 |
-| TSK-17 | 实现 GPS/OD/结果分片与回放 | REQ-07 | design.md §D4 | 部分：结果分片与回放留待第三阶段 | 缺失能力测试 |
+| TSK-17 | 实现 GPS/OD/结果分片与回放 | REQ-07 | design.md §D4 | 结果回放已验证；GPS/OD 回放仍待实现 | analysis.test.mjs、浏览器回放 |
 | TSK-18 | 实现地图工具与历史动作去重 | REQ-07 | design.md §D4 | 已验证 | data.test.mjs、浏览器 |
 | TSK-19 | 实现确认、后台运行和取消清理 | REQ-07 | design.md §D4 | 已验证 | data.test.mjs 取消清理 |
-| TSK-20 | 抽取 DRT 通用内核及参数 | REQ-08 | design.md §D5 | 待实现 | 约束独立校验 |
-| TSK-21 | 实现给定时刻表配车 | REQ-09 | design.md §D5 | 待实现 | 已知最小配车案例 |
-| TSK-22 | 实现客流班次生成与缺口报告 | REQ-09 | design.md §D5 | 待实现 | 不可行情景 |
-| TSK-23 | 实现显式实验需求生成 | REQ-10 | design.md §D5 | 待实现 | 同种子复现 |
-| TSK-24 | 实现 Python 模板、校验和注册 | REQ-11 | design.md §D5 | 待实现 | 第三方模板运行 |
-| TSK-25 | 编写并验证五类工作流程 Skills | REQ-11 | design.md §D5 | 待实现 | 从数据到 DIY 演练 |
+| TSK-20 | 抽取 DRT 通用内核及参数 | REQ-08 | design.md §D5 | 已验证（约束独立校验） | 临港 300 笔实验需求、test:python |
+| TSK-21 | 实现给定时刻表配车 | REQ-09 | design.md §D5 | 已验证（虚构夹具；本机无真实时刻表） | 已知最小配车案例、随机实例对拍 |
+| TSK-22 | 实现客流班次生成与缺口报告 | REQ-09 | design.md §D5 | 已实现，虚构夹具通过；真实数据待验 | 不可行情景、间隔合规 |
+| TSK-23 | 实现显式实验需求生成 | REQ-10 | design.md §D5 | 已验证（同种子复现、结果标记实验） | 浏览器双组对比 |
+| TSK-24 | 实现 Python 模板、校验和注册 | REQ-11 | design.md §D5 | 已验证（接口+SHA 双重校验，无沙箱） | 模板运行、改动文件被拒 |
+| TSK-25 | 编写并验证五类工作流程 Skills | REQ-11 | design.md §D5 | 已验证（注册与占位符替换） | 展示会话调用演练 |
 | TSK-26 | 实现发行白名单检查 | REQ-12 | design.md §D6 | 已实现 | check:package |
 | TSK-27 | 实现隔离 Python 初始化与诊断 | REQ-12 | design.md §D6 | 已实现（setup-python、设置页诊断） | 干净机器 |
 | TSK-28 | 补齐三平台安装升级卸载验证 | REQ-12 | design.md §D6 | 待实现 | CI 与实机记录 |

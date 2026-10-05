@@ -28,6 +28,8 @@
   "files": [
     "lib/",
     "python/linggo_data/*.py",
+    "python/templates/*.py",
+    "skills/*.md",
     "python/requirements*.txt",
     "scripts/setup-python.mjs",
     "cordis.patch.yml",

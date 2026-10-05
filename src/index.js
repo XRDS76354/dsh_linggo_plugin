@@ -7,6 +7,8 @@ import { Store } from "./store.js";
 import { Jobs } from "./jobs.js";
 import { resolvePython, runWorker } from "./worker.js";
 import { PRESENTATION_TOOLS, presentationOf, toolDenial } from "./policy.js";
+import { createAnalysis, removeResultLeftovers } from "./analysis.js";
+import { registerSkills } from "./skills.js";
 
 export const name = "linggo";
 export const inject = {
@@ -14,11 +16,16 @@ export const inject = {
   connection: { required: true },
   webServer: { required: false },
   agents: { required: false },
+  skills: { required: false },
 };
 
 const PRESENTATION_PROMPT = `You are the LingGo transit workbench assistant in a presentation session.
 Only use LingGo tools: linggo_status for readiness, linggo_query to read the project's published data,
-linggo_map to show routes or stops on the map. You cannot run shell commands, edit code or import data here.
+linggo_map to show routes, stops or an algorithm result on the map, linggo_algorithms to list scheduling algorithms,
+linggo_propose_run to propose a run (the user previews and confirms it in the 分析 tab; you cannot start runs),
+linggo_results to read finished results, and skill for LingGo how-to guides.
+You cannot run shell commands, edit code or import data here.
+Results computed from synthetic (实验生成) demand must always be called experimental, never observed demand.
 Data is imported by the user through the import wizard on the left panel, which previews and confirms every mapping.
 When the user asks for code changes or new features, suggest the "交接给开发工作台" (development handoff) action instead.
 Never invent transit data: answer only from tool results, and when data is missing, say which data the project needs.`;
@@ -42,12 +49,22 @@ export const OPERATIONS = [
   "mapActions",
   "settings",
   "saveSettings",
+  "algorithms",
+  "algorithmSource",
+  "registerAlgorithm",
+  "removeAlgorithm",
+  "previewRun",
+  "startRun",
+  "runs",
+  "runResult",
+  "proposals",
+  "dismissProposal",
 ];
 
 const NEED_LABELS = { routes: "线路与方向", stops: "站点与站序", timetable: "时刻表（计划班次）", ridership: "分时段客流或 OD" };
 const ENTITY_NAMES = ["stops", "routes", "route_stops", "trips", "ridership", "od", "demand", "gps", "vehicles", "depots"];
 const FILTER_COLUMNS = ["route_id", "route_name", "direction", "stop_id", "stop_name", "trip_id", "vehicle_id", "depot_id", "service_id", "time_bin", "date"];
-const MAP_ACTIONS = ["show_route", "show_stop", "show_all", "clear"];
+const MAP_ACTIONS = ["show_route", "show_stop", "show_run", "show_all", "clear"];
 const ACTION_HISTORY = 200;
 
 function plainObject(value, label) {
@@ -101,6 +118,8 @@ export async function apply(ctx) {
   let actionSeq = 0;
 
   await removeLeftovers(store);
+  await removeResultLeftovers(store);
+  if (ctx.skills) for (const dispose of registerSkills(ctx.skills)) ctx.effect(() => dispose);
   ctx.effect(() => () => jobs.dispose());
 
   // Final authority: every tool execution, including PTC sub-calls, passes this guard.
@@ -112,6 +131,13 @@ export async function apply(ctx) {
     const project = state.projects.find((p) => p.id === scope?.projectId);
     return { state, project, version: project && store.currentVersion(state, project.id) };
   };
+
+  const requireProject = (state, id) => {
+    const project = state.projects.find((p) => p.id === id);
+    if (!project) throw Error("Unknown project");
+    return project;
+  };
+  const analysis = createAnalysis({ store, jobs, worker, scopeOf, requireProject });
 
   const mapData = async (projectId, versionId) => {
     const key = `${projectId}/${versionId}`;
@@ -178,10 +204,10 @@ export async function apply(ctx) {
     defineTool({
       name: "linggo_map",
       description:
-        "Operate the workbench map for the current project: show_route (id = route_id, optional direction), show_stop (id = stop_id), show_all, clear. Fails if the id is not in the current data version.",
+        "Operate the workbench map for the current project: show_route (id = route_id, optional direction), show_stop (id = stop_id), show_run (id = result runId from linggo_results; shows DRT vehicle paths with replay or fleet blocks), show_all, clear. Fails if the id is not in the current data version or results.",
       parameters: {
         action: { type: "string", enum: MAP_ACTIONS, required: true },
-        id: { type: "string", description: "route_id for show_route, stop_id for show_stop." },
+        id: { type: "string", description: "route_id for show_route, stop_id for show_stop, runId for show_run." },
         direction: { type: "string", description: "Optional route direction, as in route_stops.direction." },
       },
       output: { schema: { type: "json" }, render: (_args, value) => [{ type: "text", text: JSON.stringify(value) }] },
@@ -198,6 +224,9 @@ export async function apply(ctx) {
           const stop = data.stops.find((s) => s[0] === args.id);
           if (!stop) return { ok: false, message: `数据版本中没有站点 ${args.id}` };
           target = { stopId: stop[0], name: stop[1] };
+        } else if (args.action === "show_run") {
+          target = await analysis.showRun(project, args.id);
+          if (!target) return { ok: false, message: `没有结果 ${args.id}` };
         }
         const action = {
           seq: ++actionSeq,
@@ -214,6 +243,8 @@ export async function apply(ctx) {
       },
     }),
   );
+
+  for (const tool of analysis.tools) ctx.tools.register(tool);
 
   // Hide non-transit tools and explain the boundary; the guard above still decides.
   const installed = new Map();
@@ -239,12 +270,6 @@ export async function apply(ctx) {
     for (const lifts of installed.values()) void lifts[1]?.();
     installed.clear();
   });
-
-  const requireProject = (state, id) => {
-    const project = state.projects.find((p) => p.id === id);
-    if (!project) throw Error("Unknown project");
-    return project;
-  };
 
   const previewToken = (projectId, source, mapping) =>
     createHmac("sha256", secret).update(JSON.stringify([projectId, source, mapping])).digest("hex");
@@ -376,6 +401,8 @@ export async function apply(ctx) {
         await rename(tmp, settingsFile);
         return { saved: true };
       }
+      default:
+        return analysis.ops[operation](input);
     }
   };
 

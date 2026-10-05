@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { zh, en } from "./locales.js";
 import { DataSummary, ImportWizard, MapView, SettingsView, dataStyle } from "./data.jsx";
+import { AnalysisView, analysisStyle } from "./analysis.jsx";
 const h = React.createElement;
 
 export const inject = [
@@ -68,7 +69,7 @@ html[data-linggo][data-linggo-blocked] ${FRAME}>:nth-child(2){visibility:hidden;
   .linggo-cover{top:44px;left:0;}
   html[data-linggo-view="workspace"] .linggo-cover{display:none;}
 }
-${dataStyle}`;
+${dataStyle}${analysisStyle}`;
 
 const norm = (p) => (p ?? "").replaceAll("\\", "/").replace(/\/+$/, "");
 const presentationProject = (cwd) =>
@@ -155,6 +156,8 @@ function Workbench({ t, api, onReset, newPresentation, openSession, useSessions,
   const [view, setView] = useState("workspace");
   const [tab, setTab] = useState("map");
   const [jobs, setJobs] = useState([]);
+  const [runId, setRunId] = useState(null);
+  const [proposalCount, setProposalCount] = useState(0);
   const sessions = useSessions((s) => s);
   const archived = useWorkspaces((s) => s.archivedSessionIds);
   const setProject = (id) => {
@@ -226,6 +229,19 @@ function Workbench({ t, api, onReset, newPresentation, openSession, useSessions,
     }, 1000);
     return () => clearInterval(timer);
   }, [running, project]);
+
+  // Proposals from the presentation agent show as a count on the analysis tab.
+  useEffect(() => {
+    setRunId(null);
+    if (!known) return;
+    let stop = false, timer;
+    const poll = async () => {
+      await api("proposals", { projectId: project }).then((list) => setProposalCount(list.length), () => {});
+      if (!stop) timer = setTimeout(poll, 3000);
+    };
+    poll();
+    return () => ((stop = true), clearTimeout(timer));
+  }, [project, known]);
 
   const aside = h(
     "aside",
@@ -373,7 +389,13 @@ function Workbench({ t, api, onReset, newPresentation, openSession, useSessions,
       h(
         "nav",
         { className: "linggo-tabbar" },
-        ...["map", "import", "settings"].map((k) => h("button", { key: k, "aria-pressed": tab === k, onClick: () => setTab(k) }, t("tab." + k))),
+        ...["map", "analysis", "import", "settings"].map((k) =>
+          h(
+            "button",
+            { key: k, "aria-pressed": tab === k, onClick: () => setTab(k) },
+            k === "analysis" && proposalCount ? t("tab.analysisCount", { n: String(proposalCount) }) : t("tab." + k),
+          ),
+        ),
       ),
     tab === "import" && known
       ? h(ImportWizard, {
@@ -389,13 +411,26 @@ function Workbench({ t, api, onReset, newPresentation, openSession, useSessions,
         })
       : tab === "settings"
         ? h(SettingsView, { t, api })
+        : tab === "analysis" && known
+          ? h(AnalysisView, {
+              key: project,
+              t,
+              api,
+              project,
+              version: currentVersion,
+              jobs,
+              refreshJobs,
+              run,
+              busy,
+              onShowRun: (id) => (setRunId(id), setTab("map")),
+            })
         : currentVersion
           ? h(
               React.Fragment,
               null,
               missing.length > 0 && h("small", null, t("map.missing", { list: missing.map((k) => t("need." + k)).join("、") })),
               ...(currentVersion.warnings ?? []).map((w, i) => h("small", { key: i, className: "linggo-error" }, "⚠ " + w)),
-              h(MapView, { t, api, project, versionId: currentVersion.id }),
+              h(MapView, { t, api, project, versionId: currentVersion.id, runId, onRun: setRunId }),
             )
           : empty,
   );

@@ -2,7 +2,15 @@ import { realpathSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
 /** Tools a presentation-session agent may call. Everything else is denied on the Host. */
-export const PRESENTATION_TOOLS = ["linggo_status", "linggo_query", "linggo_map"];
+export const PRESENTATION_TOOLS = [
+  "linggo_status",
+  "linggo_query",
+  "linggo_map",
+  "linggo_algorithms",
+  "linggo_propose_run",
+  "linggo_results",
+  "skill",
+];
 
 const folded = process.platform === "darwin" || process.platform === "win32";
 
