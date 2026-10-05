@@ -27,6 +27,9 @@
   },
   "files": [
     "lib/",
+    "python/linggo_data/*.py",
+    "python/requirements*.txt",
+    "scripts/setup-python.mjs",
     "cordis.patch.yml",
     "README.md",
     "LICENSE",
@@ -35,7 +38,9 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "test": "node --test tests/*.test.mjs",
-    "check:package": "node scripts/check-package.mjs"
+    "check:package": "node scripts/check-package.mjs",
+    "test:python": "node scripts/setup-python.mjs --run-tests",
+    "setup:python": "node scripts/setup-python.mjs"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "*",

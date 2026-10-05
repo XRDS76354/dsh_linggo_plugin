@@ -3,6 +3,7 @@
 - Target DSH: `0.2.1-alpha.1`, local official-source baseline `5badb15009`. Later versions are not assumed compatible.
 - Tested Host: macOS, Node.js 22.23.1, npm-distributed DSH 0.2.1-alpha.1, Microsoft Edge.
 - Verified in the browser: three-column workbench, native conversation with real model streaming and tool records, tool restriction, development handoff into a native draft, session reuse, narrow layout, Host restart and uninstall. See [docs/verification.md](docs/verification.md).
+- Stage 2 (data import, versions, canvas map, agent query/map tools) verified in the browser with a Python 3.13 venv created by `npm run setup:python`. AMap tiles and PostGIS are implemented but not verified at runtime. The worker requires Python 3.10+.
 - Desktop app: not verified (the installed desktop build is 0.2.0-rc.2). The desktop → browser link uses `webServer.port` and `connection.authenticatedUrl`.
 - Windows and Linux: planned, not verified.
 - No upstream fork or source patch is required.

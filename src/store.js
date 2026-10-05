@@ -38,8 +38,11 @@ export function migrate(state) {
     dataVersions: state.dataVersions ?? [],
     scenarios: state.scenarios ?? [],
     results: state.results ?? [],
+    jobs: state.jobs ?? [],
   };
 }
+
+const JOB_HISTORY = 100;
 
 export class Store {
   constructor(root) {
@@ -159,6 +162,50 @@ export class Store {
       item.devSessionId = devSessionId;
       item.openedAt ??= new Date().toISOString();
       return item;
+    });
+  }
+
+  versionDir(projectId, versionId) {
+    return join(this.root, "projects", projectId, "data", "versions", versionId);
+  }
+
+  stagingDir(projectId, jobId) {
+    return join(this.root, "projects", projectId, "data", "staging", jobId);
+  }
+
+  /** The version the project currently shows: the selected one, else the newest. */
+  currentVersion(state, projectId) {
+    const project = state.projects.find((p) => p.id === projectId);
+    const own = state.dataVersions.filter((v) => v.projectId === projectId);
+    return own.find((v) => v.id === project?.currentVersionId) ?? own.at(-1);
+  }
+
+  async addDataVersion(version) {
+    return this.update((state) => {
+      const project = state.projects.find((p) => p.id === version.projectId);
+      if (!project) throw Error("Unknown project");
+      state.dataVersions.push(version);
+      project.currentVersionId = version.id;
+      return version;
+    });
+  }
+
+  async selectVersion(input) {
+    return this.update((state) => {
+      const project = state.projects.find((p) => p.id === input?.projectId);
+      if (!project) throw Error("Unknown project");
+      if (!state.dataVersions.some((v) => v.id === input.versionId && v.projectId === project.id))
+        throw Error("Unknown data version");
+      project.currentVersionId = input.versionId;
+      return project;
+    });
+  }
+
+  /** Keep finished jobs for history; running jobs live in memory only. */
+  async recordJob(job) {
+    return this.update((state) => {
+      state.jobs = [...state.jobs.filter((j) => j.id !== job.id), job].slice(-JOB_HISTORY);
+      return job;
     });
   }
 

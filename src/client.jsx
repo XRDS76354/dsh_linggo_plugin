@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { zh, en } from "./locales.js";
+import { DataSummary, ImportWizard, MapView, SettingsView, dataStyle } from "./data.jsx";
 const h = React.createElement;
 
 export const inject = [
@@ -67,7 +68,7 @@ html[data-linggo][data-linggo-blocked] ${FRAME}>:nth-child(2){visibility:hidden;
   .linggo-cover{top:44px;left:0;}
   html[data-linggo-view="workspace"] .linggo-cover{display:none;}
 }
-`;
+${dataStyle}`;
 
 const norm = (p) => (p ?? "").replaceAll("\\", "/").replace(/\/+$/, "");
 const presentationProject = (cwd) =>
@@ -152,6 +153,8 @@ function Workbench({ t, api, onReset, newPresentation, openSession, useSessions,
   const [summary, setSummary] = useState("");
   const [preview, setPreview] = useState(false);
   const [view, setView] = useState("workspace");
+  const [tab, setTab] = useState("map");
+  const [jobs, setJobs] = useState([]);
   const sessions = useSessions((s) => s);
   const archived = useWorkspaces((s) => s.archivedSessionIds);
   const setProject = (id) => {
@@ -205,6 +208,24 @@ function Workbench({ t, api, onReset, newPresentation, openSession, useSessions,
 
   const restore = () => (history[0] ? openSession(history[0].id) : newPresentation(project));
   const versions = state.dataVersions.filter((v) => v.projectId === project);
+  const currentVersion = versions.find((v) => v.id === selected?.currentVersionId) ?? versions.at(-1);
+
+  // Jobs poll while one runs; a finished import refreshes the published versions.
+  const refreshJobs = () => (known ? api("jobs", { projectId: project }).then(setJobs, () => {}) : Promise.resolve());
+  const running = jobs.some((j) => j.status === "running");
+  useEffect(() => {
+    refreshJobs();
+  }, [project, known]);
+  useEffect(() => {
+    if (!running) return;
+    const timer = setInterval(async () => {
+      const list = await api("jobs", { projectId: project }).catch(() => null);
+      if (!list) return;
+      setJobs(list);
+      if (!list.some((j) => j.status === "running")) refresh();
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [running, project]);
 
   const aside = h(
     "aside",
@@ -234,8 +255,9 @@ function Workbench({ t, api, onReset, newPresentation, openSession, useSessions,
           run(async () => {
             const p = await api("createProject", { name });
             setName("");
-            setProject(p.id);
+            // Refresh first: selecting an id the state does not list yet falls back to the first project.
             await refresh();
+            setProject(p.id);
           }),
       },
       t("wb.createProject"),
@@ -263,10 +285,19 @@ function Workbench({ t, api, onReset, newPresentation, openSession, useSessions,
           ),
         )
       : h("small", null, known ? t("wb.noSessions") : ""),
-    h("h3", null, t("wb.data")),
-    h("small", null, versions.length ? t("wb.versions", { count: String(versions.length) }) : t("wb.noData")),
-    h("h3", null, t("wb.tasks")),
-    h("small", null, t("wb.noTasks")),
+    known &&
+      h(DataSummary, {
+        t,
+        api,
+        project,
+        state,
+        jobs,
+        refresh,
+        refreshJobs,
+        run,
+        busy,
+        openImport: () => (setTab("import"), setView("workspace")),
+      }),
     h("h3", null, t("wb.handoff")),
     h("textarea", {
       "aria-label": t("wb.handoffSummary"),
@@ -291,7 +322,7 @@ function Workbench({ t, api, onReset, newPresentation, openSession, useSessions,
           null,
           t("draft.project", { name: selected?.name ?? "", id: project }),
           h("br"),
-          ...contextLines(t, { context: {} }, state).flatMap((l) => [l, h("br")]),
+          ...contextLines(t, { context: { dataVersionId: currentVersion?.id } }, state).flatMap((l) => [l, h("br")]),
           currentProject === project && current ? t("draft.source", { id: current.id }) : t("wb.noSource"),
         ),
         h("p", { className: "linggo-note" }, t("wb.previewNote")),
@@ -305,7 +336,7 @@ function Workbench({ t, api, onReset, newPresentation, openSession, useSessions,
                 await api("handoff", {
                   projectId: project,
                   summary,
-                  context: {},
+                  context: { dataVersionId: currentVersion?.id },
                   sourceSessionId: currentProject === project ? current?.id : undefined,
                 });
                 setSummary("");
@@ -325,22 +356,48 @@ function Workbench({ t, api, onReset, newPresentation, openSession, useSessions,
     note && h("p", { className: "linggo-note", role: "status" }, note),
   );
 
+  const missing = currentVersion ? currentVersion.missing ?? [] : ["routes", "stops", "timetable", "ridership"];
+  const empty = h(
+    "div",
+    { className: "linggo-empty" },
+    h("h2", null, selected ? selected.name : t("wb.welcome")),
+    h("p", { className: "linggo-note" }, t("wb.mapNoData")),
+    h("ul", null, ...missing.map((k) => h("li", { key: k }, t("need." + k)))),
+    known && h("button", { className: "primary", onClick: () => setTab("import") }, t("data.import")),
+    h("small", null, t("wb.mapHint")),
+  );
   const main = h(
     "main",
     { "aria-label": t("wb.map") },
-    h(
-      "div",
-      { className: "linggo-empty" },
-      h("h2", null, selected ? selected.name : t("wb.welcome")),
-      h("p", { className: "linggo-note" }, versions.length ? t("wb.mapPending") : t("wb.mapNoData")),
-      !versions.length &&
-        h(
-          "ul",
-          null,
-          ...["need.routes", "need.stops", "need.timetable", "need.ridership"].map((k) => h("li", { key: k }, t(k))),
-        ),
-      h("small", null, t("wb.mapHint")),
-    ),
+    known &&
+      h(
+        "nav",
+        { className: "linggo-tabbar" },
+        ...["map", "import", "settings"].map((k) => h("button", { key: k, "aria-pressed": tab === k, onClick: () => setTab(k) }, t("tab." + k))),
+      ),
+    tab === "import" && known
+      ? h(ImportWizard, {
+          key: project,
+          t,
+          api,
+          project,
+          onCancel: () => setTab("map"),
+          onDone: () => {
+            setTab("map");
+            refreshJobs();
+          },
+        })
+      : tab === "settings"
+        ? h(SettingsView, { t, api })
+        : currentVersion
+          ? h(
+              React.Fragment,
+              null,
+              missing.length > 0 && h("small", null, t("map.missing", { list: missing.map((k) => t("need." + k)).join("、") })),
+              ...(currentVersion.warnings ?? []).map((w, i) => h("small", { key: i, className: "linggo-error" }, "⚠ " + w)),
+              h(MapView, { t, api, project, versionId: currentVersion.id }),
+            )
+          : empty,
   );
 
   return h(
