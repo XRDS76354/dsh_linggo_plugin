@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from "react";
 const h = React.createElement;
-export const inject = ["slots", "sessions", "uiWorkspace", "connection"];
+export const inject = [
+  "slots",
+  "sessions",
+  "uiWorkspace",
+  "connection",
+  "conversation",
+];
 const style = `
 html[data-linggo] div:has(> [data-rightbar-col]){padding-left:var(--linggo-width,65%);grid-template-columns:0 minmax(0,1fr) 0!important;}
 html[data-linggo] div:has(> [data-rightbar-col])>:first-child{display:none;}
@@ -53,6 +59,7 @@ function Workbench({ api, open, useSessions }) {
   }
   const back = new URL(location.href);
   back.searchParams.delete("linggo");
+  back.hash = "";
   return h(
     "section",
     { className: "linggo-workspace" },
@@ -195,24 +202,27 @@ function Entry({ api, open }) {
     [error, setError] = useState("");
   const url = new URL(location.href);
   url.searchParams.set("linggo", "1");
-  const desktop = location.protocol === "file:";
+  const desktop =
+    location.protocol === "dsh-app:" || location.protocol === "file:";
+  const [launchUrl, setLaunchUrl] = useState("");
+  useEffect(() => {
+    api("launch", { desktop })
+      .then((r) => setLaunchUrl(r.url))
+      .catch((e) => setError(String(e)));
+  }, []);
   return h(
     React.Fragment,
     null,
     h(
       "div",
       { className: "linggo-entry" },
-      desktop
+      launchUrl
         ? h(
-            "span",
-            { title: "桌面到独立浏览器的共享 Host 连接尚待验证" },
-            "公交工作台：桌面桥接待验证",
-          )
-        : h(
             "a",
-            { href: url.href, target: "_blank", rel: "noopener" },
+            { href: launchUrl, target: "_blank", rel: "noopener,noreferrer" },
             "公交工作台 ↗",
-          ),
+          )
+        : h("span", { title: error || "正在连接" }, "公交工作台连接中"),
       h(
         "button",
         {
@@ -244,15 +254,14 @@ function Entry({ api, open }) {
               {
                 onClick: async () => {
                   try {
-                    await open(item.projectId, "development");
-                    await navigator.clipboard.writeText(item.summary);
-                    setError("已打开开发会话并复制摘要，请粘贴检查后发送。");
+                    await open(item.projectId, "development", item.summary);
+                    setError("已打开开发会话，摘要已填入草稿，请检查后发送。");
                   } catch (e) {
                     setError(String(e));
                   }
                 },
               },
-              "打开开发会话并复制摘要",
+              "打开开发会话并准备草稿",
             ),
           ),
         ),
@@ -260,7 +269,9 @@ function Entry({ api, open }) {
   );
 }
 export function apply(ctx) {
-  const enabled = new URLSearchParams(location.search).get("linggo") === "1";
+  const enabled =
+    new URLSearchParams(location.hash.slice(1)).get("linggo") === "1" ||
+    new URLSearchParams(location.search).get("linggo") === "1";
   const api = async (endpoint, payload) => {
     const r = await ctx.connection.rpc.call(
       "/api",
@@ -270,10 +281,20 @@ export function apply(ctx) {
     if (!r.ok) throw Error(r.error.message);
     return r.value;
   };
-  const open = async (projectId, mode) => {
+  const open = async (projectId, mode, prompt) => {
     const { cwd } = await api("directory", { projectId, mode });
     const id = await ctx.sessions.create({ cwd });
-    ctx.uiWorkspace.openSession(id);
+    await ctx.sessions.using(id, { source: "mainView" }, async (reference) => {
+      await reference.ready;
+      if (
+        prompt &&
+        ctx.conversation.input.requestDraftInitialization(reference.binding, {
+          prompt,
+        }) === "blocked"
+      )
+        throw Error("开发会话草稿暂不可用");
+      ctx.uiWorkspace.openSession(id);
+    });
   };
   ctx.effect(() => {
     if (enabled) document.documentElement.setAttribute("data-linggo", "");

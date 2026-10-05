@@ -5,7 +5,7 @@
 - Official installation into a separate Web profile and authenticated RPC: verified.
 - Native browser conversation rendering, streaming, cancellation and reconnect: pending browser validation.
 - Desktop IPC routes: implemented against the shared Fetch route API, not yet runtime-verified.
-- Desktop → authenticated independent Web surface: not implemented. The Desktop entry explicitly reports this rather than opening a broken URL.
+- Desktop → independent Web surface: uses the same Host HTTP port and official authenticatedUrl; token exchange verified over HTTP. Actual desktop click and browser fragment retention remain unverified.
 - Windows and Linux: planned, not verified.
 - No upstream fork or source patch is required by the preview.
 

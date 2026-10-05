@@ -22,6 +22,12 @@ else:
  try:urllib.request.urlopen(urllib.request.Request(base+'/api/linggo.state',data=body,headers={'Content-Type':'application/json'}))
  except urllib.error.HTTPError as e:assert e.code==401
  else:raise AssertionError('Unauthenticated API admitted')
+ launch=rpc('launch',{'desktop':True})['value']['url']
+ assert 'linggo=1' in launch and 'desktopReturn=1' in launch
+ other=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+ response=other.open(launch)
+ assert response.status==200 and 'token=' not in response.url
+ # Browsers inherit the input fragment when Location has no fragment (DSH redirects to './').
  projects=[rpc('createProject',{'name':'Integration test '+name})['value'] for name in ['A','B']]
  paths=[rpc('directory',{'projectId':x['id'],'mode':'presentation'})['value']['cwd'] for x in projects]
  assert paths[0]!=paths[1]

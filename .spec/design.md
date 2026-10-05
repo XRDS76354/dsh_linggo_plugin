@@ -3,7 +3,7 @@
 2026-10-05；6个设计区域。明确区分现状与待实现设计。
 
 ## D1 插件与页面（REQ-01、REQ-02）
-现状：bundle 激活 Host 和 Client。官方客户端模块工厂装载 `lib/client.js`；`shell.overlay` 放置公交区域，原生 Conversation 留在原布局中；仅 `?linggo=1` 使用三栏样式。Host 的 ToolRuntime guard 根据持久 session.header.cwd 最终拒绝非白名单工具。源码：src/index.js、src/client.jsx、src/policy.js。桌面外部浏览器桥接未实现。
+现状：bundle 激活 Host 和 Client。官方客户端模块工厂装载 `lib/client.js`；`shell.overlay` 放置公交区域，原生 Conversation 留在原布局中；仅 `#linggo=1` 使用三栏样式。Host 的 ToolRuntime guard 根据持久 session.header.cwd 最终拒绝非白名单工具。源码：src/index.js、src/client.jsx、src/policy.js。桌面外部浏览器地址通过共享 Host 的 webServer.port 和 connection.authenticatedUrl 生成；#linggo=1 区分页面，避免认证重定向清除查询参数。桌面实际点击未验证。
 
 ## D2 项目和交接（REQ-03）
 现状：Store 串行更新并原子替换 state.json。项目 UUID 区分 presentation/development 目录。共享 Connection Fetch 层承载官方 RPC envelope，声明 state/createProject/handoff/directory 四个端点。开发交接只保存摘要；版本引用、历史选择与恢复待实现。源码：src/store.js、src/index.js。

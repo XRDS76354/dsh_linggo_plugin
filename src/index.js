@@ -5,7 +5,7 @@ import { defineTool } from "@deepseek-ai/dsh-tools";
 import { Store } from "./store.js";
 import { toolDenial, isPresentationDirectory } from "./policy.js";
 export const name = "linggo";
-export const inject = ["tools", "connection"];
+export const inject = ["tools", "connection", "webServer"];
 /** Stage-one capability probe. Project persistence will replace this directory in stage two. */
 export async function apply(ctx) {
   const root = join(
@@ -55,7 +55,16 @@ export async function apply(ctx) {
       signal.throwIfAborted();
       const input = payload && typeof payload === "object" ? payload : {};
       let value;
-      if (endpoint === "state") value = await store.read();
+      if (endpoint === "launch") {
+        const url = new URL(
+          ctx.connection.authenticatedUrl(
+            `http://127.0.0.1:${ctx.webServer.port}/`,
+          ),
+        );
+        url.hash = "linggo=1";
+        if (input.desktop === true) url.hash = "linggo=1&desktopReturn=1";
+        value = { url: url.href };
+      } else if (endpoint === "state") value = await store.read();
       else if (endpoint === "createProject") {
         value = await store.createProject(input);
         presentationRoots = await directories();
@@ -83,7 +92,13 @@ export async function apply(ctx) {
       };
     }
   };
-  for (const operation of ["state", "createProject", "handoff", "directory"]) {
+  for (const operation of [
+    "state",
+    "createProject",
+    "handoff",
+    "directory",
+    "launch",
+  ]) {
     ctx.connection.fetch.register({
       path: `/api/linggo.${operation}`,
       methods: ["POST"],

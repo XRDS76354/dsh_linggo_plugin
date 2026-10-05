@@ -8,7 +8,7 @@
 | TSK-02 | 注册独立页面入口及条件样式 | REQ-01 | design.md §D1 | 待界面验收 | 双页截图 |
 | TSK-03 | 在真实 ToolRuntime 验证工具拒绝 | REQ-02 | design.md §D1 | 已验证 | runtime.test.mjs |
 | TSK-04 | 验证原生回复、工具、取消与重连 | REQ-02 | design.md §D1 | 待验证 | 浏览器与临时会话 |
-| TSK-05 | 实现桌面到认证浏览器的共享 Host 桥接 | REQ-01 | design.md §D1 | 待实现 | 桌面实际安装 |
+| TSK-05 | 实现桌面到认证浏览器的共享 Host 桥接 | REQ-01 | design.md §D1 | 已实现，待桌面验收 | 桌面实际安装 |
 | TSK-06 | 持久化独立项目目录 | REQ-03 | design.md §D2 | 已验证 | store.test.mjs |
 | TSK-07 | 保存开发摘要及确认交互 | REQ-03 | design.md §D2 | 部分实现 | RPC、界面预览 |
 | TSK-08 | 实现项目会话筛选、恢复和交接会话复用 | REQ-03 | design.md §D2 | 待实现 | 两项目切换 |
