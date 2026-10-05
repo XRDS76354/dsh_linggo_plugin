@@ -3,10 +3,10 @@
 2026-10-05；6个设计区域。明确区分现状与待实现设计。
 
 ## D1 插件与页面（REQ-01、REQ-02）
-现状：bundle 激活 Host 和 Client。官方客户端模块工厂装载 `lib/client.js`；`shell.overlay` 放置公交区域，原生 Conversation 留在原布局中；仅 `#linggo=1` 使用三栏样式。Host 的 ToolRuntime guard 根据持久 session.header.cwd 最终拒绝非白名单工具。源码：src/index.js、src/client.jsx、src/policy.js。桌面外部浏览器地址通过共享 Host 的 webServer.port 和 connection.authenticatedUrl 生成；#linggo=1 区分页面，避免认证重定向清除查询参数。桌面实际点击未验证。
+现状：bundle 激活 Host 和 Client。官方客户端模块工厂装载 `lib/client.js`；`shell.overlay` 放置公交区域，原生 Conversation 留在原布局中；仅 `#linggo=1` 使用三栏样式。Host 的 ToolRuntime guard 根据持久 session.header.cwd 最终拒绝非白名单工具。源码：src/index.js、src/client.jsx、src/policy.js。桌面外部浏览器地址通过共享 Host 的 webServer.port 和 connection.authenticatedUrl 生成；#linggo=1 区分页面，避免认证重定向清除查询参数。展示页 CSS 隐藏 DSH 侧栏、右侧栏和拖拽手柄（保留网格位置），左侧 64% 放工作台。展示会话属于项目专用展示工作区（DSH 输入框要求会话有工作区）。Host 在 agent/created 时对展示会话执行 tools.restrict 并注入系统提示段；guard 为最终裁决。桌面实际点击未验证。
 
 ## D2 项目和交接（REQ-03）
-现状：Store 串行更新并原子替换 state.json。项目 UUID 区分 presentation/development 目录。共享 Connection Fetch 层承载官方 RPC envelope，声明 state/createProject/handoff/directory 四个端点。开发交接只保存摘要；版本引用、历史选择与恢复待实现。源码：src/store.js、src/index.js。
+现状：Store 串行更新并原子替换 state.json。项目 UUID 区分 presentation/development 目录。共享 Connection Fetch 层承载官方 RPC envelope，声明 launch/state/createProject/directory/handoff/handoffOpened/handoffArchive 端点。state.json schema 2，跨进程 state.lock。交接保存摘要、经同项目校验的数据版本/情景/结果引用、来源会话，以及首次打开的开发会话（复用）。展示页按项目筛选和恢复展示会话。源码：src/store.js、src/index.js。
 
 ## D3 数据管线（REQ-04、REQ-05、REQ-06）
 目标：Python 分块读取 CSV/TSV/Excel、GeoJSON/Shapefile、GTFS，PostGIS 在只读事务中提取表或视图。来源→映射→质量预览→确认→暂存版本→原子发布。标准数据按线路方向、站序、站点、几何、时刻表、客流、OD、需求、GPS、车辆及车场分类；明确坐标、时区、单位、口径。数据库凭据不进入分享配置。尚无实现，不依赖原项目固定地区脚本。

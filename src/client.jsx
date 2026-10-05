@@ -1,319 +1,590 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { zh, en } from "./locales.js";
 const h = React.createElement;
+
 export const inject = [
   "slots",
   "sessions",
+  "workspaces",
   "uiWorkspace",
   "connection",
   "conversation",
+  "layout",
+  "locale",
 ];
+
+const NS = "linggo";
+const PANEL_ID = "linggo";
+const SOURCE = "linggo";
+const FRAME = "div:has(> [data-rightbar-col])";
+const LAST_PROJECT = "linggo.project";
+
 const style = `
-html[data-linggo] div:has(> [data-rightbar-col]){padding-left:var(--linggo-width,65%);grid-template-columns:0 minmax(0,1fr) 0!important;}
-html[data-linggo] div:has(> [data-rightbar-col])>:first-child{display:none;}
-.linggo-workspace{position:fixed;inset:0 auto 0 0;width:var(--linggo-width,65%);z-index:30;pointer-events:auto;display:grid;grid-template-columns:230px minmax(0,1fr);background:#f7f9fc;color:#243348;font:14px system-ui;}
-.linggo-workspace aside{padding:20px;border-right:1px solid #dce2eb;overflow:auto;background:white;}
-.linggo-workspace main{display:flex;align-items:center;justify-content:center;padding:28px;text-align:center;}
-.linggo-workspace button,.linggo-entry{padding:8px 12px;border:1px solid #ccd6e3;border-radius:7px;background:white;color:#263e62;cursor:pointer;margin:4px;}
-.linggo-workspace button:disabled{opacity:.5;cursor:wait;}
-.linggo-workspace small{display:block;color:#65748b;line-height:1.7;}
-.linggo-workspace input,.linggo-workspace textarea,.linggo-workspace select{width:100%;box-sizing:border-box;padding:8px;margin:5px 0;border:1px solid #bbc8d8;border-radius:5px;}
-.linggo-entry{position:fixed;right:20px;top:12px;z-index:50;pointer-events:auto;}
-.linggo-error{color:#a62828;white-space:pre-wrap;}
-.linggo-inbox{position:fixed;right:16px;top:60px;width:340px;max-height:70vh;overflow:auto;background:white;color:#243348;padding:16px;box-shadow:0 5px 24px #0003;pointer-events:auto;z-index:51;}
-@media(max-width:950px){html[data-linggo]{--linggo-width:55%;}.linggo-workspace{grid-template-columns:160px minmax(0,1fr);}.linggo-workspace aside{padding:10px;}}
+html[data-linggo]{--linggo-width:64%;}
+html[data-linggo] ${FRAME}{padding-left:var(--linggo-width);grid-template-columns:0 minmax(0,1fr) 0!important;}
+html[data-linggo] ${FRAME}>:first-child{visibility:hidden;}
+html[data-linggo] ${FRAME}>:nth-child(2){grid-column:2;}
+html[data-linggo] ${FRAME}>[data-side]{display:none;}
+html[data-linggo] [data-rightbar-col],html[data-linggo] [aria-label="打开右侧边栏"],html[data-linggo] [aria-label="Open right sidebar"]{display:none!important;}
+html[data-linggo][data-linggo-blocked] ${FRAME}>:nth-child(2){visibility:hidden;}
+.linggo-root{--c-bg:var(--dsw-alias-bg-base,#fff);--c-side:var(--dsw-specific-sidebar-fill,#f6f7f9);--c-text:var(--dsw-alias-label-primary,#1f2329);--c-sub:var(--dsw-alias-label-secondary,#646a73);--c-cap:var(--dsw-alias-label-tertiary,#8f959e);--c-line:var(--dsw-alias-border-l3,#e4e6eb);--c-hover:var(--dsw-alias-interactive-bg-hover,#0000000d);--c-accent:var(--dsw-alias-state-business-primary,#3c6df0);--c-err:var(--dsw-alias-state-error-primary,#d83931);color:var(--c-text);font-family:var(--dsw-font-family,system-ui);font-size:13px;line-height:1.5;}
+.linggo-root *{box-sizing:border-box;}
+.linggo-root h2{font-size:15px;margin:0 0 4px;}
+.linggo-root h3{font-size:12px;font-weight:600;color:var(--c-sub);margin:18px 0 6px;text-transform:none;}
+.linggo-root small,.linggo-cap{display:block;color:var(--c-cap);font-size:12px;}
+.linggo-root button,.linggo-root .linggo-btn{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border:1px solid var(--c-line);border-radius:var(--dsw-radius-md,8px);background:var(--c-bg);color:var(--c-text);cursor:pointer;font:inherit;text-decoration:none;margin:2px 4px 2px 0;}
+.linggo-root button:hover,.linggo-root .linggo-btn:hover{background:var(--c-hover);}
+.linggo-root button.primary{background:var(--c-accent);border-color:var(--c-accent);color:#fff;}
+.linggo-root button:disabled{opacity:.5;cursor:default;}
+.linggo-root input,.linggo-root textarea,.linggo-root select{width:100%;padding:6px 8px;margin:4px 0;border:1px solid var(--c-line);border-radius:var(--dsw-radius-sm,6px);background:var(--c-bg);color:var(--c-text);font:inherit;}
+.linggo-root textarea{min-height:72px;resize:vertical;}
+.linggo-error{color:var(--c-err);white-space:pre-wrap;}
+.linggo-note{color:var(--c-sub);}
+.linggo-list{list-style:none;margin:0;padding:0;}
+.linggo-list li{padding:6px 8px;border-radius:var(--dsw-radius-sm,6px);cursor:pointer;display:flex;justify-content:space-between;gap:8px;}
+.linggo-list li:hover{background:var(--c-hover);}
+.linggo-list li[aria-current="true"]{background:var(--c-hover);font-weight:600;}
+.linggo-list li span:last-child{color:var(--c-cap);font-size:12px;white-space:nowrap;}
+.linggo-card{border:1px solid var(--c-line);border-radius:var(--dsw-radius-md,8px);padding:10px;margin:8px 0;}
+.linggo-workspace{position:fixed;inset:0 auto 0 0;width:var(--linggo-width);pointer-events:auto;display:grid;grid-template-columns:260px minmax(0,1fr);background:var(--c-bg);border-right:1px solid var(--c-line);}
+.linggo-workspace>aside{padding:16px;padding-top:max(16px,var(--dsh-frame-top-clearance,0px));border-right:1px solid var(--c-line);overflow:auto;background:var(--c-side);}
+.linggo-workspace>main{overflow:auto;padding:24px;padding-top:max(24px,var(--dsh-frame-top-clearance,0px));}
+.linggo-empty{max-width:520px;margin:12vh auto 0;text-align:left;}
+.linggo-empty ul{color:var(--c-sub);padding-left:18px;}
+.linggo-cover{position:fixed;top:0;bottom:0;left:var(--linggo-width);right:0;pointer-events:auto;display:grid;place-items:center;padding:24px;background:var(--c-bg);}
+.linggo-cover>div{max-width:360px;text-align:center;}
+.linggo-tabs{display:none;}
+.linggo-panel{height:100%;overflow:auto;padding:24px 32px;padding-top:max(24px,var(--dsh-frame-top-clearance,0px));max-width:860px;}
+@media(max-width:900px){
+  html[data-linggo]{--linggo-width:0px;}
+  html[data-linggo] ${FRAME}{padding-top:44px;}
+  .linggo-tabs{display:flex;position:fixed;top:0;left:0;right:0;height:44px;align-items:center;justify-content:center;gap:4px;background:var(--c-side);border-bottom:1px solid var(--c-line);pointer-events:auto;}
+  .linggo-tabs button[aria-pressed="true"]{background:var(--c-hover);font-weight:600;}
+  .linggo-workspace{top:44px;width:100%;grid-template-columns:1fr;grid-template-rows:auto 1fr;overflow:auto;}
+  .linggo-workspace>aside{border-right:0;border-bottom:1px solid var(--c-line);padding-top:16px;}
+  html[data-linggo-view="chat"] .linggo-workspace{display:none;}
+  html[data-linggo-view="workspace"] ${FRAME}>:nth-child(2){visibility:hidden;}
+  .linggo-cover{top:44px;left:0;}
+  html[data-linggo-view="workspace"] .linggo-cover{display:none;}
+}
 `;
-function Workbench({ api, open, useSessions }) {
-  const [state, setState] = useState({ projects: [], handoffs: [] }),
-    [project, setProject] = useState(""),
-    [name, setName] = useState(""),
-    [summary, setSummary] = useState(""),
-    [error, setError] = useState(""),
-    [busy, setBusy] = useState(false),
-    [preview, setPreview] = useState(false);
-  const selectedCwd = useSessions(
-    (snapshot) =>
-      Object.values(snapshot.byId).find(
-        (row) => (row.retainedBy?.mainView ?? 0) > 0,
-      )?.cwd ?? "",
-  );
-  const presentationSelected =
-    !!project &&
-    selectedCwd
-      .replaceAll("\\", "/")
-      .endsWith(`/projects/${project}/presentation`);
-  const refresh = () => api("state", {}).then(setState);
-  useEffect(() => {
-    refresh().catch((e) => setError(String(e)));
-  }, []);
-  async function perform(fn) {
+
+const norm = (p) => (p ?? "").replaceAll("\\", "/").replace(/\/+$/, "");
+const presentationProject = (cwd) =>
+  /\/linggo\/projects\/([\w-]+)\/presentation(\/|$)/.exec(norm(cwd))?.[1];
+const when = (iso) => {
+  const d = new Date(iso);
+  return isNaN(d) ? "" : d.toLocaleString(undefined, { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+};
+const sessionTime = (row) => when(typeof row.updatedAt === "number" ? new Date(row.updatedAt).toISOString() : row.updatedAt);
+
+function useAsync(t) {
+  const [error, setError] = useState(""), [busy, setBusy] = useState(false), [note, setNote] = useState("");
+  const run = async (fn) => {
     setBusy(true);
     setError("");
+    setNote("");
     try {
-      await fn();
-      await refresh();
+      const message = await fn();
+      if (typeof message === "string") setNote(message);
     } catch (e) {
-      setError(String(e));
+      setError(e?.message ?? String(e));
     } finally {
       setBusy(false);
     }
-  }
-  const back = new URL(location.href);
-  back.searchParams.delete("linggo");
-  back.hash = "";
-  return h(
-    "section",
-    { className: "linggo-workspace" },
-    !presentationSelected &&
+  };
+  return { error, busy, note, run };
+}
+
+function useLinggoState(api, onReset) {
+  const [state, setState] = useState({ projects: [], handoffs: [], dataVersions: [] });
+  const [loadError, setLoadError] = useState("");
+  const refresh = () =>
+    api("state", {}).then(
+      (s) => {
+        setState(s);
+        setLoadError("");
+        return s;
+      },
+      (e) => setLoadError(e.message),
+    );
+  useEffect(() => {
+    refresh();
+    return onReset(refresh);
+  }, []);
+  return { state, refresh, loadError };
+}
+
+function contextLines(t, handoff, state) {
+  const c = handoff.context ?? {};
+  const version = state.dataVersions?.find((v) => v.id === c.dataVersionId);
+  return [
+    t("ctx.dataVersion", { value: version?.label ?? c.dataVersionId ?? t("ctx.none") }),
+    t("ctx.scenario", { value: c.scenarioId ?? t("ctx.none") }),
+    t("ctx.results", { value: c.resultRefs?.length ? c.resultRefs.join(", ") : t("ctx.none") }),
+  ];
+}
+
+export function draftPrompt(t, handoff, project, state) {
+  return [
+    t("draft.title", { name: project?.name ?? handoff.projectId }),
+    "",
+    handoff.summary,
+    "",
+    t("draft.context"),
+    `- ${t("draft.project", { name: project?.name ?? "", id: handoff.projectId })}`,
+    ...contextLines(t, handoff, state).map((line) => `- ${line}`),
+    handoff.sourceSessionId ? `- ${t("draft.source", { id: handoff.sourceSessionId })}` : "",
+    "",
+    t("draft.footer"),
+  ]
+    .filter((line, i, all) => line !== "" || all[i - 1] !== "")
+    .join("\n");
+}
+
+/* ----------------------------- Three-column presentation page ----------------------------- */
+
+function Workbench({ t, api, onReset, newPresentation, openSession, useSessions, useWorkspaces }) {
+  const { state, refresh, loadError } = useLinggoState(api, onReset);
+  const { error, busy, note, run } = useAsync(t);
+  const [project, setProjectRaw] = useState(() => localStorage.getItem(LAST_PROJECT) ?? "");
+  const [name, setName] = useState("");
+  const [summary, setSummary] = useState("");
+  const [preview, setPreview] = useState(false);
+  const [view, setView] = useState("workspace");
+  const sessions = useSessions((s) => s);
+  const archived = useWorkspaces((s) => s.archivedSessionIds);
+  const setProject = (id) => {
+    setProjectRaw(id);
+    localStorage.setItem(LAST_PROJECT, id);
+  };
+  const current = useMemo(
+    () => Object.values(sessions.byId).find((row) => (row.retainedBy?.mainView ?? 0) > 0),
+    [sessions],
+  );
+  const currentProject = presentationProject(current?.cwd);
+  const known = state.projects.some((p) => p.id === project);
+  const selected = state.projects.find((p) => p.id === project);
+  const blocked = !known || currentProject !== project;
+  const history = useMemo(
+    () =>
+      sessions.ids
+        .map((id) => sessions.byId[id])
+        .filter(
+          (row) =>
+            row &&
+            row.origin !== "subagent" &&
+            presentationProject(row.cwd) === project &&
+            !archived.includes(row.id) &&
+            (!row.blank || row.id === current?.id),
+        )
+        .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt))),
+    [sessions, archived, project, current?.id],
+  );
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (blocked) root.setAttribute("data-linggo-blocked", "");
+    else root.removeAttribute("data-linggo-blocked");
+    root.setAttribute("data-linggo-view", view);
+    return () => {
+      root.removeAttribute("data-linggo-blocked");
+      root.removeAttribute("data-linggo-view");
+    };
+  }, [blocked, view]);
+
+  // A stale stored project (deleted, other DSH home) falls back to the first one.
+  useEffect(() => {
+    if (state.projects.length && !known) setProject(state.projects[0].id);
+  }, [state.projects, known]);
+
+  const params = new URLSearchParams(location.hash.slice(1));
+  const devUrl = new URL(location.href);
+  devUrl.hash = "";
+  devUrl.searchParams.delete("linggo");
+
+  const restore = () => (history[0] ? openSession(history[0].id) : newPresentation(project));
+  const versions = state.dataVersions.filter((v) => v.projectId === project);
+
+  const aside = h(
+    "aside",
+    null,
+    h("h2", null, "LingGo"),
+    h("small", null, t("wb.subtitle")),
+    h("h3", null, t("wb.project")),
+    state.projects.length
+      ? h(
+          "select",
+          { "aria-label": t("wb.project"), value: project, onChange: (e) => setProject(e.target.value) },
+          ...state.projects.map((p) => h("option", { key: p.id, value: p.id }, p.name)),
+        )
+      : h("small", null, t("wb.noProject")),
+    h("input", {
+      "aria-label": t("wb.newProjectName"),
+      value: name,
+      maxLength: 100,
+      placeholder: t("wb.newProjectName"),
+      onChange: (e) => setName(e.target.value),
+    }),
+    h(
+      "button",
+      {
+        disabled: busy || !name.trim(),
+        onClick: () =>
+          run(async () => {
+            const p = await api("createProject", { name });
+            setName("");
+            setProject(p.id);
+            await refresh();
+          }),
+      },
+      t("wb.createProject"),
+    ),
+    h("h3", null, t("wb.sessions")),
+    h("button", { className: "primary", disabled: busy || !known, onClick: () => run(() => newPresentation(project)) }, t("wb.newSession")),
+    history.length
+      ? h(
+          "ul",
+          { className: "linggo-list", "aria-label": t("wb.sessions") },
+          ...history.map((row) =>
+            h(
+              "li",
+              {
+                key: row.id,
+                "aria-current": row.id === current?.id ? "true" : undefined,
+                onClick: () => {
+                  openSession(row.id);
+                  setView("chat");
+                },
+              },
+              h("span", null, row.displayTitle || t("wb.untitled")),
+              h("span", null, row.running ? t("wb.running") : sessionTime(row)),
+            ),
+          ),
+        )
+      : h("small", null, known ? t("wb.noSessions") : ""),
+    h("h3", null, t("wb.data")),
+    h("small", null, versions.length ? t("wb.versions", { count: String(versions.length) }) : t("wb.noData")),
+    h("h3", null, t("wb.tasks")),
+    h("small", null, t("wb.noTasks")),
+    h("h3", null, t("wb.handoff")),
+    h("textarea", {
+      "aria-label": t("wb.handoffSummary"),
+      value: summary,
+      maxLength: 4000,
+      placeholder: t("wb.handoffPlaceholder"),
+      onChange: (e) => {
+        setSummary(e.target.value);
+        setPreview(false);
+      },
+    }),
+    !preview &&
+      h("button", { disabled: !known || !summary.trim() || busy, onClick: () => setPreview(true) }, t("wb.preview")),
+    preview &&
       h(
         "div",
-        {
-          style: {
-            position: "fixed",
-            left: "var(--linggo-width,65%)",
-            right: 0,
-            top: 0,
-            bottom: 0,
-            background: "white",
-            zIndex: 60,
-            display: "grid",
-            placeItems: "center",
-            padding: 24,
-          },
-        },
-        "请选择项目并新建展示会话；开发对话不会在此展示。",
-      ),
-    h(
-      "aside",
-      null,
-      h("h2", null, "LingGo"),
-      h("p", null, "公交工作台 · 集成预览"),
-      h(
-        "label",
-        null,
-        "当前项目",
+        { className: "linggo-card", role: "region", "aria-label": t("wb.previewTitle") },
+        h("strong", null, t("wb.previewTitle")),
+        h("p", { style: { whiteSpace: "pre-wrap" } }, summary.trim()),
         h(
-          "select",
-          { value: project, onChange: (e) => setProject(e.target.value) },
-          h("option", { value: "" }, "选择项目"),
-          ...state.projects.map((p) =>
-            h("option", { key: p.id, value: p.id }, p.name),
-          ),
+          "small",
+          null,
+          t("draft.project", { name: selected?.name ?? "", id: project }),
+          h("br"),
+          ...contextLines(t, { context: {} }, state).flatMap((l) => [l, h("br")]),
+          currentProject === project && current ? t("draft.source", { id: current.id }) : t("wb.noSource"),
         ),
+        h("p", { className: "linggo-note" }, t("wb.previewNote")),
+        h(
+          "button",
+          {
+            className: "primary",
+            disabled: busy,
+            onClick: () =>
+              run(async () => {
+                await api("handoff", {
+                  projectId: project,
+                  summary,
+                  context: {},
+                  sourceSessionId: currentProject === project ? current?.id : undefined,
+                });
+                setSummary("");
+                setPreview(false);
+                await refresh();
+                return t("wb.handoffSaved");
+              }),
+          },
+          t("wb.confirm"),
+        ),
+        h("button", { onClick: () => setPreview(false) }, t("common.cancel")),
       ),
-      h("input", {
-        "aria-label": "新项目名称",
-        value: name,
-        onChange: (e) => setName(e.target.value),
-        placeholder: "城市或区域项目名称",
-      }),
+    h("h3", null, t("wb.return")),
+    h("a", { className: "linggo-btn", href: devUrl.href, target: "_blank", rel: "noopener" }, t("wb.devWeb")),
+    params.get("desktopReturn") === "1" && h("a", { className: "linggo-btn", href: "dsh://open" }, t("wb.devDesktop")),
+    (error || loadError) && h("p", { className: "linggo-error", role: "alert" }, error || loadError),
+    note && h("p", { className: "linggo-note", role: "status" }, note),
+  );
+
+  const main = h(
+    "main",
+    { "aria-label": t("wb.map") },
+    h(
+      "div",
+      { className: "linggo-empty" },
+      h("h2", null, selected ? selected.name : t("wb.welcome")),
+      h("p", { className: "linggo-note" }, versions.length ? t("wb.mapPending") : t("wb.mapNoData")),
+      !versions.length &&
+        h(
+          "ul",
+          null,
+          ...["need.routes", "need.stops", "need.timetable", "need.ridership"].map((k) => h("li", { key: k }, t(k))),
+        ),
+      h("small", null, t("wb.mapHint")),
+    ),
+  );
+
+  return h(
+    "div",
+    { className: "linggo-root" },
+    h(
+      "nav",
+      { className: "linggo-tabs", "aria-label": "LingGo" },
+      h("button", { "aria-pressed": view === "workspace", onClick: () => setView("workspace") }, t("wb.tabWorkspace")),
+      h("button", { "aria-pressed": view === "chat", onClick: () => setView("chat") }, t("wb.tabChat")),
+    ),
+    h("section", { className: "linggo-workspace" }, aside, main),
+    blocked &&
       h(
-        "button",
-        {
-          disabled: busy || !name.trim(),
-          onClick: () =>
-            perform(async () => {
-              const p = await api("createProject", { name });
-              setProject(p.id);
-              setName("");
-            }),
-        },
-        "创建项目",
-      ),
-      h(
-        "button",
-        {
-          disabled: busy || !project,
-          onClick: () => perform(() => open(project, "presentation")),
-        },
-        "新建展示会话",
-      ),
-      h("h3", null, "数据与任务"),
-      h("small", null, "尚未开放数据导入：先完成 DSH 集成验收。"),
-      h("h3", null, "交接给开发工作台"),
-      h("textarea", {
-        "aria-label": "开发任务摘要",
-        value: summary,
-        onChange: (e) => {
-          setSummary(e.target.value);
-          setPreview(false);
-        },
-        placeholder: "说明想实现或修改的功能",
-      }),
-      h(
-        "button",
-        {
-          disabled: !project || !summary.trim() || busy,
-          onClick: () => setPreview(true),
-        },
-        "预览交接",
-      ),
-      preview &&
+        "div",
+        { className: "linggo-cover", role: "region", "aria-label": t("wb.chat") },
         h(
           "div",
           null,
-          h("p", null, summary),
-          h(
-            "small",
-            null,
-            "保存后在 DSH 的开发交接中打开。不会自动发送或执行。",
-          ),
+          h("h2", null, t("cover.title")),
+          h("p", { className: "linggo-note" }, known ? t("cover.body") : t("cover.noProject")),
+          known &&
+            h(
+              "button",
+              { className: "primary", disabled: busy, onClick: () => run(restore) },
+              history[0] ? t("cover.restore") : t("wb.newSession"),
+            ),
+          known && history[0] && h("button", { disabled: busy, onClick: () => run(() => newPresentation(project)) }, t("wb.newSession")),
+        ),
+      ),
+  );
+}
+
+/* ----------------------------- DSH development page panel ----------------------------- */
+
+function PanelIcon({ size = 20 }) {
+  return h(
+    "svg",
+    { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.6, "aria-hidden": true },
+    h("rect", { x: 4, y: 3.5, width: 16, height: 14, rx: 3 }),
+    h("path", { d: "M4 11h16M8 21l1.5-3.5M16 21l-1.5-3.5" }),
+    h("circle", { cx: 8.5, cy: 14.5, r: 0.8, fill: "currentColor" }),
+    h("circle", { cx: 15.5, cy: 14.5, r: 0.8, fill: "currentColor" }),
+  );
+}
+
+function DevPanel({ t, api, onReset, openHandoff, useSessions }) {
+  const { state, refresh, loadError } = useLinggoState(api, onReset);
+  const { error, busy, note, run } = useAsync(t);
+  const [showArchived, setShowArchived] = useState(false);
+  const known = useSessions((s) => s.byId);
+  const desktop = location.protocol !== "http:" && location.protocol !== "https:";
+  const [launch, setLaunch] = useState("");
+  const webUrl = new URL(location.href);
+  webUrl.hash = "linggo=1";
+  const fetchLaunch = () =>
+    api("launch", { desktop: true }).then(
+      (r) => setLaunch(r.url),
+      () => setLaunch(""),
+    );
+  useEffect(() => {
+    if (desktop) fetchLaunch();
+  }, []);
+  const projects = Object.fromEntries(state.projects.map((p) => [p.id, p]));
+  const handoffs = state.handoffs
+    .filter((x) => showArchived || !x.archivedAt)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+  return h(
+    "div",
+    { className: "linggo-root linggo-panel" },
+    h("h2", null, t("dev.title")),
+    h("p", { className: "linggo-note" }, t("dev.intro")),
+    desktop
+      ? h(
+          "a",
+          {
+            className: "linggo-btn",
+            href: launch || undefined,
+            target: "_blank",
+            rel: "noopener noreferrer",
+            "aria-disabled": !launch,
+            // Authenticated links are single-use; prepare the next one after each click.
+            onClick: () => setTimeout(fetchLaunch, 500),
+          },
+          launch ? t("dev.openBrowser") : t("dev.connecting"),
+        )
+      : h("a", { className: "linggo-btn", href: webUrl.href, target: "_blank", rel: "noopener" }, t("dev.openWeb")),
+    h("h3", null, t("dev.projects", { count: String(state.projects.length) })),
+    state.projects.length
+      ? h("small", null, state.projects.map((p) => p.name).join(" · "))
+      : h("small", null, t("dev.noProjects")),
+    h(
+      "h3",
+      null,
+      t("dev.inbox"),
+      " ",
+      h(
+        "label",
+        { style: { fontWeight: 400 } },
+        h("input", { type: "checkbox", style: { width: "auto" }, checked: showArchived, onChange: (e) => setShowArchived(e.target.checked) }),
+        " ",
+        t("dev.showArchived"),
+      ),
+    ),
+    !handoffs.length && h("small", null, t("dev.empty")),
+    ...handoffs.map((item) => {
+      const reuse = item.devSessionId && known[item.devSessionId];
+      return h(
+        "article",
+        { key: item.id, className: "linggo-card" },
+        h("small", null, `${projects[item.projectId]?.name ?? item.projectId} · ${when(item.createdAt)}${item.archivedAt ? " · " + t("dev.archived") : ""}`),
+        h("p", { style: { whiteSpace: "pre-wrap", margin: "6px 0" } }, item.summary),
+        h("small", null, contextLines(t, item, state).join(" · ")),
+        h(
+          "div",
+          { style: { marginTop: 8 } },
           h(
             "button",
             {
+              className: "primary",
               disabled: busy,
               onClick: () =>
-                perform(async () => {
-                  await api("handoff", { projectId: project, summary });
-                  setSummary("");
-                  setPreview(false);
+                run(async () => {
+                  const outcome = await openHandoff(item, projects[item.projectId], state);
+                  await refresh();
+                  return outcome === "preserved" ? t("dev.preserved") : t("dev.drafted");
                 }),
             },
-            "确认保存交接",
+            reuse ? t("dev.reopen") : t("dev.open"),
           ),
-        ),
-      h(
-        "p",
-        null,
-        h(
-          "a",
-          { href: back.href, target: "_blank", rel: "noopener" },
-          "DSH Web 工作台",
-        ),
-      ),
-      h("a", { href: "dsh://open" }, "唤起 DSH 桌面"),
-      error && h("p", { className: "linggo-error", role: "alert" }, error),
-    ),
-    h(
-      "main",
-      null,
-      h(
-        "div",
-        null,
-        h("h2", null, "你的公交数据工作空间"),
-        h("p", null, "地图与分析将在接入数据后启用。"),
-        h("small", null, "右侧复用 DSH 原生对话。请先选择项目并新建展示会话。"),
-      ),
-    ),
-  );
-}
-function Entry({ api, open }) {
-  const [visible, setVisible] = useState(false),
-    [state, setState] = useState({ handoffs: [] }),
-    [error, setError] = useState("");
-  const url = new URL(location.href);
-  url.searchParams.set("linggo", "1");
-  const desktop =
-    location.protocol === "dsh-app:" || location.protocol === "file:";
-  const [launchUrl, setLaunchUrl] = useState("");
-  useEffect(() => {
-    api("launch", { desktop })
-      .then((r) => setLaunchUrl(r.url))
-      .catch((e) => setError(String(e)));
-  }, []);
-  return h(
-    React.Fragment,
-    null,
-    h(
-      "div",
-      { className: "linggo-entry" },
-      launchUrl
-        ? h(
-            "a",
-            { href: launchUrl, target: "_blank", rel: "noopener,noreferrer" },
-            "公交工作台 ↗",
-          )
-        : h("span", { title: error || "正在连接" }, "公交工作台连接中"),
-      h(
-        "button",
-        {
-          onClick: async () => {
-            setVisible(!visible);
-            try {
-              setState(await api("state", {}));
-            } catch (e) {
-              setError(String(e));
-            }
-          },
-        },
-        "开发交接",
-      ),
-    ),
-    visible &&
-      h(
-        "section",
-        { className: "linggo-inbox" },
-        h("h3", null, "开发交接"),
-        error && h("p", { role: "alert" }, error),
-        ...state.handoffs.map((item) =>
-          h(
-            "article",
-            { key: item.id },
-            h("p", null, item.summary),
+          !item.archivedAt &&
             h(
               "button",
-              {
-                onClick: async () => {
-                  try {
-                    await open(item.projectId, "development", item.summary);
-                    setError("已打开开发会话，摘要已填入草稿，请检查后发送。");
-                  } catch (e) {
-                    setError(String(e));
-                  }
-                },
-              },
-              "打开开发会话并准备草稿",
+              { disabled: busy, onClick: () => run(async () => { await api("handoffArchive", { id: item.id }); await refresh(); }) },
+              t("dev.archive"),
             ),
-          ),
         ),
-      ),
+      );
+    }),
+    (error || loadError) && h("p", { className: "linggo-error", role: "alert" }, error || loadError),
+    note && h("p", { className: "linggo-note", role: "status" }, note),
   );
 }
+
+/* ----------------------------- Plugin activation ----------------------------- */
+
+export function isWorkbenchLocation(loc = location) {
+  return (
+    new URLSearchParams(loc.hash.slice(1)).get("linggo") === "1" ||
+    new URLSearchParams(loc.search).get("linggo") === "1"
+  );
+}
+
 export function apply(ctx) {
-  const enabled =
-    new URLSearchParams(location.hash.slice(1)).get("linggo") === "1" ||
-    new URLSearchParams(location.search).get("linggo") === "1";
-  const api = async (endpoint, payload) => {
-    const r = await ctx.connection.rpc.call(
-      "/api",
-      `linggo.${endpoint}`,
-      payload,
-    );
+  const enabled = isWorkbenchLocation();
+  ctx.effect(() => ctx.locale.register(NS, { zh, en }));
+  const t = ctx.locale.bind(NS);
+
+  const api = async (operation, payload) => {
+    const r = await ctx.connection.rpc.call("/api", `linggo.${operation}`, payload);
     if (!r.ok) throw Error(r.error.message);
     return r.value;
   };
-  const open = async (projectId, mode, prompt) => {
-    const { cwd } = await api("directory", { projectId, mode });
-    const id = await ctx.sessions.create({ cwd });
-    await ctx.sessions.using(id, { source: "mainView" }, async (reference) => {
-      await reference.ready;
-      if (
-        prompt &&
-        ctx.conversation.input.requestDraftInitialization(reference.binding, {
-          prompt,
-        }) === "blocked"
-      )
-        throw Error("开发会话草稿暂不可用");
-      ctx.uiWorkspace.openSession(id);
-    });
+  const resets = new Set();
+  ctx.on("connection/reset", () => resets.forEach((fn) => fn()));
+  const onReset = (fn) => {
+    resets.add(fn);
+    return () => resets.delete(fn);
   };
+
+  const openSession = (id) => ctx.uiWorkspace.openSession(id);
+  // The composer only accepts input for Sessions that belong to a workspace, so each mode gets one.
+  const workspaceFor = async (project, mode = "development") => {
+    const { cwd } = await api("directory", { projectId: project.id, mode });
+    const view = await ctx.workspaces.create({ path: cwd });
+    const title = t(mode === "development" ? "dev.workspaceTitle" : "wb.workspaceTitle", { name: project.name });
+    if (view.title !== title) await ctx.workspaces.rename(view.workspaceId, title).catch(() => {});
+    // connectWorkspace resolves through the list snapshot, which may trail the create response.
+    for (let i = 0; i < 40; i++) {
+      if (ctx.workspaces.list.getSnapshot().items.some((w) => w.workspaceId === view.workspaceId)) break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    return view;
+  };
+
+  const newPresentation = async (projectId) => {
+    const project = (await api("state")).projects.find((p) => p.id === projectId);
+    if (!project) throw Error(t("dev.unknownProject"));
+    const workspace = await workspaceFor(project, "presentation");
+    openSession(await ctx.sessions.create({ workspaceId: workspace.workspaceId }));
+  };
+
+  const openHandoff = async (item, project, state) => {
+    if (!project) throw Error(t("dev.unknownProject"));
+    const prompt = draftPrompt(t, item, project, state);
+    const draft = (binding) => {
+      const outcome = binding ? ctx.conversation.input.requestDraftInitialization(binding, { prompt }) : "blocked";
+      if (outcome === "blocked") throw Error(t("dev.draftBlocked"));
+      return outcome;
+    };
+    const workspace = await workspaceFor(project);
+    if (item.devSessionId && ctx.sessions.list.getSnapshot().byId[item.devSessionId]) {
+      openSession(item.devSessionId);
+      return ctx.sessions.using(item.devSessionId, { source: SOURCE }, async (ref) => {
+        await ref.ready;
+        return draft(ref.binding);
+      });
+    }
+    let devSessionId, outcome;
+    await ctx.uiWorkspace.openWorkspace(workspace.workspaceId, (id) => {
+      devSessionId = id;
+      outcome = draft(ctx.sessions.binding(id));
+    });
+    if (!devSessionId) throw Error(t("dev.draftBlocked"));
+    await api("handoffOpened", { id: item.id, devSessionId });
+    return outcome;
+  };
+
   ctx.effect(() => {
-    if (enabled) document.documentElement.setAttribute("data-linggo", "");
     const el = document.createElement("style");
+    el.dataset.linggo = "";
     el.textContent = style;
     document.head.append(el);
+    if (enabled) document.documentElement.setAttribute("data-linggo", "");
     return () => {
       el.remove();
-      document.documentElement.removeAttribute("data-linggo");
+      for (const a of ["data-linggo", "data-linggo-blocked", "data-linggo-view"]) document.documentElement.removeAttribute(a);
     };
   });
-  ctx.slots.inject("shell.overlay", () =>
-    ctx.slots.register(
-      {
-        name: "shell.overlay",
-        id: enabled ? "linggo-workspace" : "linggo-entry",
-        inject: () => ({ api, open }),
-      },
-      enabled ? Workbench : Entry,
-    ),
+
+  if (enabled) {
+    ctx.slots.inject("shell.overlay", () =>
+      ctx.slots.register(
+        { name: "shell.overlay", id: "linggo-workbench", inject: () => ({ t, api, onReset, newPresentation, openSession }) },
+        Workbench,
+      ),
+    );
+    return;
+  }
+  ctx.slots.inject("main", () =>
+    ctx.slots.register({ name: "main", key: PANEL_ID, inject: () => ({ t, api, onReset, openHandoff }) }, DevPanel),
+  );
+  ctx.slots.inject("sidebar.panellist", () =>
+    ctx.slots.register({ name: "sidebar.panellist", id: PANEL_ID, order: 10, label: () => t("panel") }, PanelIcon),
   );
 }

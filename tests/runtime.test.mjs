@@ -23,7 +23,7 @@ test("DSH real tool dispatcher refuses coding before its body runs", async () =>
     },
   });
   const lift = ctx.tools.guard((exec) =>
-    toolDenial("/tmp/linggo/presentation", exec),
+    toolDenial("/tmp/linggo", exec),
   );
   const result = await ctx.tools.execute({
     callId: "probe-1",
@@ -32,7 +32,7 @@ test("DSH real tool dispatcher refuses coding before its body runs", async () =>
     signal: new AbortController().signal,
     agent: {
       id: "test-presentation",
-      session: { header: { cwd: "/tmp/linggo/presentation" } },
+      session: { header: { cwd: "/tmp/linggo/projects/p-1/presentation" } },
     },
   });
   assert.equal(called, false);
