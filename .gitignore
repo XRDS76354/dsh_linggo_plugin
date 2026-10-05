@@ -1,0 +1,14 @@
+.DS_Store
+node_modules/
+lib/
+*.tgz
+.env
+.env.*
+!.env.example
+.local/
+data/
+projects/
+artifacts/
+.venv/
+__pycache__/
+*.pyc
