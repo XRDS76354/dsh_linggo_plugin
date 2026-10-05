@@ -94,13 +94,30 @@ npm run check:package
 npm pack
 ```
 
-发行白名单仅包含构建文件、Python 数据模块与依赖清单、Python 初始化脚本、bundle 配置、README、许可证与兼容说明。源码安装使用仓库中的 lockfile。请勿将本预览包描述为可完成数据或调度流程的正式版。
+发行白名单仅包含构建文件、Python 数据模块与依赖清单、Python 初始化脚本、bundle 配置、Skill 文档、算法模板、README、许可证与兼容说明。`check:package` 会拒绝任何白名单外文件；实测发行包 31 个文件、约 300 KB，不含数据、日志、凭据或本机路径。源码安装使用仓库中的 lockfile。
+
+从发行包安装（不经源码目录）：
+
+```sh
+dsh plugin --profile <profile> add ./dsh-linggo-plugin-0.1.0-alpha.1.tgz
+export DSH_HOME=<该 profile 的 DSH_HOME>
+node <安装目录>/node_modules/dsh-linggo-plugin/scripts/setup-python.mjs
+```
+
+`dsh plugin add` 需要 pnpm 在 PATH 上；没有 pnpm 时可先 `corepack enable pnpm`。Python 环境创建在 `$DSH_HOME/linggo/venv`，与插件目录分离，升级或重装插件不需要重建。
+
+## 许可证与第三方
+
+自研代码 MIT，见 [LICENSE](LICENSE)。发行包不内联第三方源码：Host 与客户端分别以 `external` 打包（客户端依赖 DSH 提供的 React），第三方依赖在安装时从公开发布源获取，仍按其自身许可证使用。
+
+- 运行时 Python 依赖（`python/requirements.txt`）：pandas（BSD-3-Clause）、openpyxl（MIT）、pyshp（MIT）、pyproj（MIT）；可选 PostGIS 驱动 psycopg（LGPL-3.0）。
+- 构建期 Node 依赖（`devDependencies`）：esbuild（MIT）。不随发行包分发。
+
+CPTOND 与地区原始数据不随插件分发，也不因此获得再分发授权；本仓库不包含任何地区数据。
 
 ## 后续阶段
 
 1. ~~DSH 集成~~（已完成，桌面待验收）。
 2. ~~数据导入、数据版本、地图与质量检查~~（已完成，PostGIS 和高德底图待实机验收）。
 3. ~~DRT、常规公交配车/客流班次、实验场景、Python 算法接口和 Skills~~（已完成，见上）。
-4. 预构建版本、隔离 Python 初始化、跨平台验证与公开发布检查。
-
-自研代码 MIT；第三方软件仍按自身许可证使用。CPTOND 与地区原始数据不随插件分发，也不因此获得再分发授权。
+4. ~~预构建发行包、隔离 Python 初始化、发行前审计与许可说明~~（已完成）；三平台安装验证仅覆盖 macOS，Windows/Linux 为待办。

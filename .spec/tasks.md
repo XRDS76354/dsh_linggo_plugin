@@ -29,9 +29,9 @@
 | TSK-23 | 实现显式实验需求生成 | REQ-10 | design.md §D5 | 已验证（同种子复现、结果标记实验） | 浏览器双组对比 |
 | TSK-24 | 实现 Python 模板、校验和注册 | REQ-11 | design.md §D5 | 已验证（接口+SHA 双重校验，无沙箱） | 模板运行、改动文件被拒 |
 | TSK-25 | 编写并验证五类工作流程 Skills | REQ-11 | design.md §D5 | 已验证（注册与占位符替换） | 展示会话调用演练 |
-| TSK-26 | 实现发行白名单检查 | REQ-12 | design.md §D6 | 已实现 | check:package |
-| TSK-27 | 实现隔离 Python 初始化与诊断 | REQ-12 | design.md §D6 | 已实现（setup-python、设置页诊断） | 干净机器 |
-| TSK-28 | 补齐三平台安装升级卸载验证 | REQ-12 | design.md §D6 | 待实现 | CI 与实机记录 |
-| TSK-29 | 完成来源许可和公开前内容审计 | REQ-12 | design.md §D6 | 待实现 | 发行包/历史检查 |
+| TSK-26 | 实现发行白名单检查 | REQ-12 | design.md §D6 | 已验证（31 文件，越界即拒绝） | check:package、npm pack |
+| TSK-27 | 实现隔离 Python 初始化与诊断 | REQ-12 | design.md §D6 | 已验证（新 home 从发行包安装并诊断） | setup-python、doctor |
+| TSK-28 | 补齐三平台安装升级卸载验证 | REQ-12 | design.md §D6 | macOS 已验证（发行包安装、启动、smoke）；Windows/Linux 待办 | smoke-host.py、浏览器 |
+| TSK-29 | 完成来源许可和公开前内容审计 | REQ-12 | design.md §D6 | 已验证（无数据/凭据/本机路径，第三方许可已列明） | 发行包扫描、git 历史检查 |
 
 新增任务沿用上述六列；大型条目实施时拆为单层、可独立验证的30–60分钟工作单元。

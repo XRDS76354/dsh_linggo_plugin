@@ -33,6 +33,19 @@
 - 展示会话智能体：真实模型回合中模型调用 `linggo_algorithms`、`linggo_propose_run`（6 车 / 12 车两组对比），建议出现在“分析”页并附“来自展示会话智能体”与理由；模型明确说明确认前不会运行、它无法代用户启动。用户在页面上预览并确认后两组运行完成，模型随后用 `linggo_results` 读取结果并比较服务率（15.5% vs 30.0%），再用 `linggo_map` 的 `show_run` 请求回放服务率更高的一组。“智能体地图操作”列表出现“显示结果 DRT 动态插入”，点击后结果图层载入，时间轴从 07:02 起、车辆计数正确。
 - 控制台无错误。
 
+## 第四阶段实测（发行包安装，macOS）
+
+在一个全新的 `DSH_HOME`（`/private/tmp/linggo-stage4`）中从 `npm pack` 产物安装，不使用源码 link：
+
+- `npm pack` 产物 31 个文件、310734 字节；`check:package` 通过，白名单外文件会被拒绝。
+- `dsh plugin --profile linggo-test add dsh-linggo-plugin-0.1.0-alpha.1.tgz` 安装成功，profile 依赖解析为 `file:...tgz`，`node_modules/dsh-linggo-plugin` 是 pnpm 从 tarball 解出的真实副本而非符号链接；`lib/`、`python/`、`python/templates/`、`skills/` 全部随包安装。
+- 本机无 pnpm，`dsh plugin add` 报 `pnpm ENOENT`；用 `corepack prepare pnpm@9 --activate` 提供 pnpm 后可正常安装。profile 内的 `pnpm-workspace.yaml` 需要 `ignore-workspace-root-check=true` 才允许把依赖加到根。
+- 在全新 home 中运行安装目录内的 `scripts/setup-python.mjs`：创建 `$DSH_HOME/linggo/venv`（Python 3.13.3），从清华镜像安装 pandas 3.0.6、numpy 2.5.3、openpyxl 3.1.5、pyshp 3.1.6、pyproj 3.8.0。
+- 用该新环境运行仓库中的 Python 测试（32 项）全部通过——即发行包声明的依赖范围在新版本 pandas 3.x 上仍然成立，不是只在开发机的 pandas 2.x 上通过。
+- 发行包内的 worker 以插件的方式（`PYTHONPATH=<pkg>/python python -m linggo_data`）运行：`doctor` 报告 pandas/openpyxl/shapefile/pyproj 可用、psycopg 未装；`algorithms` 列出三个内置算法；用程序生成的虚构夹具跑 DRT 得到 40 笔需求服务 33 笔（82.5%）、校验 0 违规，`result.json` 正常写出。
+- 该全新 profile 启动 Host 后，`scripts/smoke-host.py` 全部通过：认证引导、未认证 401、项目目录隔离、交接校验；浏览器打开工作台正常渲染，空数据项目的“分析”页给出“当前项目还没有数据版本。先导入数据，再运行算法。”，控制台无错误。
+- 未重新验证：由于是空 home，未走一遍完整的导入→算法→回放；该流程已在第三阶段用真实本地数据验证。
+
 ## 自动测试
 
 `npm test` 15 项通过（数据项需 `LINGGO_TEST_PYTHON` 指向含依赖的 Python，否则跳过）：路径识别（项目、旧目录、兄弟目录、穿越、相对路径、符号链接与大小写变体）、真实 ToolRuntime 拒绝、跨实例并发创建、交接校验/打开/归档、schema 1 迁移与拒绝新版本、陈旧锁恢复、客户端模块工厂；预览令牌校验→导入→版本发布→工具查询/地图动作（含会话归属与非展示目录隔离）；40 万行导入取消后无版本、无 staging 残留；算法参数清洗（未知参数、类型、上下界、枚举）、展示会话策略允许分析类工具而拒绝 bash/write/edit、五份 Skill 注册且无未替换占位符、建议→预览→确认→结果全流程（无效参数与未确认不运行、令牌或参数变化被拒）、配车缺时刻表被拒、自定义算法 SHA 变化被拒与失败不留副本。
@@ -47,7 +60,9 @@
 - 空白展示会话的工作区选择器仍可切换到其他工作区；切换后会话不再属于展示目录，工作台显示遮罩，不会放开工具。
 - 桌面应用未验证：本机安装的桌面版为 0.2.0-rc.2，不是兼容基线。
 - 未单独验证"停止生成"按钮（原生 DSH 功能，插件未改动）。
-- Windows/Linux 未验证。
+- Windows/Linux 未验证。代码中已按平台分支处理解释器名（`python3`/`python`）、venv 路径（`bin/`、`Scripts/`）与 `windowsHide`，文件 I/O 统一 UTF-8，路径均用 `join`/`os.path.join`，`0o600` 在 Windows 上为无害空操作；但没有任何实机或 CI 记录，属未验证项。
+- 发行包安装需要 pnpm 在 PATH 上（或用 corepack 提供），否则 `dsh plugin add` 失败；该提示来自 DSH 而非插件。
+- 结果目录的发布用同项目内的 `rename`；若把 `$DSH_HOME/linggo` 的 results 目录单独挂到别的文件系统上会失效（默认布局不受影响）。
 - 高德底图未在浏览器验证（本机无 Key）；无 Key 或加载失败时回退内置画布，已验证回退路径。
 - PostGIS 只读提取有实现和参数校验，未连接真实数据库运行。
 - 上下行不自动拆分：临港等混合编码数据需用户在映射中指定方向，或在第三阶段用算法拆分。

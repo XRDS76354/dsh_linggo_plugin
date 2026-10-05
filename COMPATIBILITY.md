@@ -6,7 +6,9 @@
 - Stage 2 (data import, versions, canvas map, agent query/map tools) verified in the browser with a Python 3.13 venv created by `npm run setup:python`. AMap tiles and PostGIS are implemented but not verified at runtime. The worker requires Python 3.10+.
 - Stage 3 (DRT insertion, fleet assignment, trip generation, confirmed runs, result replay, user Python algorithms, runtime Skills) verified in the browser on local transit data: batch preview → confirm → run → indicators → replay, plus a real model turn that proposed a run, read the results and replayed the better one on the map. `npm test` 15, `npm run test:python` 32. Travel times are straight-line × detour factor ÷ speed, not road-network shortest paths; unverified items are listed in [docs/verification.md](docs/verification.md#已知限制).
 - Desktop app: not verified (the installed desktop build is 0.2.0-rc.2). The desktop → browser link uses `webServer.port` and `connection.authenticatedUrl`.
-- Windows and Linux: planned, not verified.
+- Windows and Linux: planned, not verified. Platform branches (interpreter names, `bin/` vs `Scripts/`, `windowsHide`), UTF-8 I/O and `join`-based paths are in place, but no machine or CI record exists.
+- Stage 4 packaging: a fresh `DSH_HOME` install from the `npm pack` tarball was verified on macOS (31 files, ~300 KB, no data or credentials), including the packaged worker run through the isolated venv created by `scripts/setup-python.mjs` (pandas 3.0.6) and a browser boot. `dsh plugin add` needs pnpm on PATH (`corepack enable pnpm` if absent).
+- Python dependencies are resolved at setup time from public indexes; the worker needs Python 3.10+. The Python test suite passes on pandas 3.x as well as the development environment's 2.x.
 - No upstream fork or source patch is required.
 
 Extension points used: `shell.overlay`, `main`, `sidebar.panellist`, `uiWorkspace.openSession/openWorkspace`, `sessions.create/using/binding`, `workspaces.create/rename`, `conversation.input.requestDraftInitialization`, `tools.guard/register`, agent `tools.restrict`, agent `systemPrompt` sections, and the Connection fetch envelope.
