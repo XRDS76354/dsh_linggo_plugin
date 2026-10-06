@@ -96,45 +96,58 @@ export function DataSummary({
         ),
       job.error && h("small", { className: "linggo-error" }, job.error),
     );
+  const summary = v
+    ? versionLabel(t, v) +
+      " · " +
+      Object.entries(v.entities ?? {})
+        .slice(0, 3)
+        .map(([k, e]) => t("entity." + k) + " " + e.rows.toLocaleString())
+        .join(" · ")
+    : t("wb.noData");
   return h(
     React.Fragment,
     null,
     h(
       SideSection,
-      { id: "data", title: t("wb.data"), badge: String(versions.length), icon: h(Icon, { name: "database", size: 14 }) },
-      v
-        ? h(
-            "div",
-            { className: "linggo-current-version" },
-            h("strong", null, versionLabel(t, v)),
-            h("small", null, t("ui.currentVersion") + " · " + v.id.slice(0, 8)),
+      {
+        id: "data",
+        title: t("wb.data"),
+        badge: versions.length ? String(versions.length) : "",
+        icon: h(Icon, { name: "database", size: 16 }),
+        initial: false,
+        actions: h(
+          "button",
+          {
+            title: t("data.import"),
+            "aria-label": t("data.import"),
+            disabled: busy || !project,
+            onClick: openImport,
+          },
+          h(Icon, { name: "plus", size: 16 }),
+        ),
+      },
+      h("div", { className: "linggo-section-summary" }, summary),
+      v &&
+        h(
+          "div",
+          { className: "linggo-entities" },
+          ...Object.entries(v.entities ?? {}).map(([k, e]) =>
             h(
               "div",
-              { className: "linggo-entities" },
-              ...Object.entries(v.entities ?? {}).map(([k, e]) =>
-                h(
-                  "div",
-                  { key: k },
-                  h("span", null, t("entity." + k)),
-                  h("span", null, e.rows.toLocaleString()),
-                ),
-              ),
+              { key: k },
+              h("span", null, t("entity." + k)),
+              h("span", null, e.rows.toLocaleString()),
             ),
-          )
-        : h("small", null, t("wb.noData")),
-      h(
-        "button",
-        { disabled: busy || !project, onClick: openImport },
-        t("data.import"),
-      ),
+          ),
+        ),
       h(
         SideSection,
         {
-          id: "versions",
-          title: t("ui.versionHistory"),
-          icon: h(Icon, { name: "history", size: 13 }),
+          id: "datasets",
+          title: t("ui.datasets"),
+          icon: h(Icon, { name: "layers", size: 15 }),
           initial: false,
-          badge: String(Math.max(0, versions.length - 1)),
+          badge: String(versions.length),
         },
         h(
           "ul",
@@ -142,27 +155,27 @@ export function DataSummary({
           ...versions
             .slice()
             .reverse()
-            .filter((v) => v.id !== current)
-            .map((v) =>
+            .map((item) =>
               h(
                 "li",
-                { key: v.id },
+                { key: item.id },
                 h(
                   "button",
                   {
                     disabled: busy,
+                    "aria-current": item.id === current ? "true" : undefined,
                     onClick: () =>
                       run(async () => {
                         await api("selectVersion", {
                           projectId: project,
-                          versionId: v.id,
+                          versionId: item.id,
                         });
                         await refresh();
                       }),
                   },
-                  versionLabel(t, v),
+                  versionLabel(t, item),
                 ),
-                h("small", null, new Date(v.createdAt).toLocaleDateString()),
+                h("small", null, new Date(item.createdAt).toLocaleDateString()),
               ),
             ),
         ),
@@ -173,24 +186,24 @@ export function DataSummary({
       {
         id: "jobs",
         title: t("wb.tasks"),
-        icon: h(Icon, { name: "list", size: 14 }),
-        badge: t("ui.jobCounts", {
-          running: String(active.length),
-          failed: String(jobs.filter((j) => j.status === "failed").length),
-        }),
+        icon: h(Icon, { name: "list", size: 16 }),
+        badge: active.length || jobs.some((j) => j.status === "failed")
+          ? t("ui.jobCounts", {
+              running: String(active.length),
+              failed: String(jobs.filter((j) => j.status === "failed").length),
+            })
+          : "",
+        initial: active.length > 0 || !!failed,
       },
       ...active.map(renderJob),
       failed && renderJob(failed),
       !jobs.length && h("small", null, t("wb.noTasks")),
-      h(
-        SideSection,
-        { id: "jobHistory", title: t("ui.taskHistory"), initial: false, icon: h(Icon, { name: "history", size: 13 }) },
-        ...jobs
-          .slice()
-          .reverse()
-          .filter((j) => !active.includes(j) && j !== failed)
-          .map(renderJob),
-      ),
+      ...jobs
+        .slice()
+        .reverse()
+        .filter((j) => !active.includes(j) && j !== failed)
+        .slice(0, 8)
+        .map(renderJob),
     ),
   );
 }

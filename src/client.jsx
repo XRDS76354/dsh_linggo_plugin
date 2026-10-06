@@ -223,6 +223,7 @@ function Workbench({
   const [projectDialog, setProjectDialog] = useState(false);
   const [handoffDialog, setHandoffDialog] = useState(false);
   const [sessionSearch, setSessionSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [tab, setTab] = useState("map");
   const [jobs, setJobs] = useState([]);
   const [runId, setRunId] = useState(null);
@@ -337,49 +338,29 @@ function Workbench({
       .toLowerCase()
       .includes(sessionSearch.toLowerCase()),
   );
-  let previousDate;
-  const sessionRows = filteredHistory.flatMap((row) => {
-    const date = new Date(row.updatedAt).toLocaleDateString();
-    const heading =
-      date !== previousDate
-        ? h(
-            "li",
-            { className: "linggo-session-date", key: "date-" + row.id },
-            date,
-          )
-        : null;
-    previousDate = date;
-    return [
-      heading,
-      h(
-        "li",
-        {
-          key: row.id,
-          "aria-current": row.id === current?.id ? "true" : undefined,
-          title: row.displayTitle || t("wb.untitled"),
-          tabIndex: 0,
-          onClick: () => {
-            openSession(row.id);
-            setView("chat");
-          },
-          onKeyDown: (e) =>
-            e.key === "Enter" && (openSession(row.id), setView("chat")),
+  const sessionRows = filteredHistory.map((row) =>
+    h(
+      "li",
+      {
+        key: row.id,
+        "aria-current": row.id === current?.id ? "true" : undefined,
+        title: row.displayTitle || t("wb.untitled"),
+        tabIndex: 0,
+        onClick: () => {
+          openSession(row.id);
+          setView("chat");
         },
-        h(
-          "span",
-          { className: "linggo-session-title" },
-          row.displayTitle || t("wb.untitled"),
-        ),
-        h(
-          "span",
-          { className: "linggo-session-meta" },
-          row.running
-            ? h("span", { className: "running" }, "● " + t("wb.running"))
-            : sessionTime(row),
-        ),
+        onKeyDown: (e) =>
+          e.key === "Enter" && (openSession(row.id), setView("chat")),
+      },
+      h("span", { className: "linggo-session-title" }, row.displayTitle || t("wb.untitled")),
+      h(
+        "span",
+        { className: "linggo-session-meta" },
+        row.running ? h("span", { className: "running" }, "●") : sessionTime(row),
       ),
-    ];
-  });
+    ),
+  );
   const aside = h(
     "aside",
     { "aria-label": t("ui.projectPanel") },
@@ -469,25 +450,42 @@ function Workbench({
               {
                 id: "sessions",
                 title: t("wb.sessions"),
-                badge: String(history.length),
-                icon: h(Icon, { name: "message", size: 14 }),
+                badge: history.length ? String(history.length) : "",
+                icon: h(Icon, { name: "message", size: 16 }),
                 className: "linggo-session-section",
+                initial: true,
+                actions: h(
+                  React.Fragment,
+                  null,
+                  h(
+                    "button",
+                    {
+                      title: t("ui.searchSessions"),
+                      "aria-label": t("ui.searchSessions"),
+                      onClick: () => setSearchOpen((v) => !v),
+                    },
+                    h(Icon, { name: "search", size: 15 }),
+                  ),
+                  h(
+                    "button",
+                    {
+                      title: t("wb.newSession"),
+                      "aria-label": t("wb.newSession"),
+                      disabled: busy || !known,
+                      onClick: () => run(() => newPresentation(project)),
+                    },
+                    h(Icon, { name: "plus", size: 16 }),
+                  ),
+                ),
               },
-              h(
-                "button",
-                {
-                  className: "primary",
-                  disabled: busy || !known,
-                  onClick: () => run(() => newPresentation(project)),
-                },
-                "+ " + t("wb.newSession"),
-              ),
-              h("input", {
-                "aria-label": t("ui.searchSessions"),
-                placeholder: t("ui.searchSessions"),
-                value: sessionSearch,
-                onChange: (e) => setSessionSearch(e.target.value),
-              }),
+              searchOpen &&
+                h("input", {
+                  className: "linggo-inline-search",
+                  "aria-label": t("ui.searchSessions"),
+                  placeholder: t("ui.searchSessions"),
+                  value: sessionSearch,
+                  onChange: (e) => setSessionSearch(e.target.value),
+                }),
               h(
                 "ul",
                 { className: "linggo-list", "aria-label": t("wb.sessions") },

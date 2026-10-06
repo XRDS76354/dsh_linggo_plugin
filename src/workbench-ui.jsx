@@ -162,8 +162,9 @@ export function SideSection({
   title,
   badge,
   icon,
+  actions,
   children,
-  initial = true,
+  initial = false,
   className = "",
 }) {
   const key = "linggo.section." + id;
@@ -174,23 +175,29 @@ export function SideSection({
     "section",
     { className: `linggo-section ${open ? "open" : "closed"} ${className}` },
     h(
-      "button",
-      {
-        className: "linggo-section-heading",
-        "aria-expanded": open,
-        onClick: () => {
-          setOpen(!open);
-          writePreference(localStorage, key, !open);
-        },
-      },
+      "div",
+      { className: "linggo-section-header" },
       h(
-        "span",
-        { className: "linggo-section-label" },
-        h("span", { className: "linggo-chevron", "aria-hidden": "true" }, open ? "⌄" : "›"),
+        "button",
+        {
+          className: "linggo-section-heading",
+          "aria-expanded": open,
+          onClick: () => {
+            setOpen(!open);
+            writePreference(localStorage, key, !open);
+          },
+        },
+        h("span", {
+          className: "linggo-chevron",
+          "aria-hidden": "true",
+        }, open ? "▾" : "▸"),
         icon || null,
         h("span", { className: "linggo-section-title" }, title),
+        badge ? h("span", { className: "linggo-count" }, badge) : null,
       ),
-      badge ? h("span", { className: "linggo-count" }, badge) : null,
+      actions
+        ? h("div", { className: "linggo-section-actions" }, actions)
+        : null,
     ),
     open && h("div", { className: "linggo-section-body" }, children),
   );
@@ -244,26 +251,30 @@ export const workbenchStyle = `
 .linggo-sidebar-body{flex:1;min-height:0;overflow:auto;padding:0 10px 12px;scrollbar-gutter:stable;display:flex;flex-direction:column;gap:2px;}
 .linggo-section{border-top:1px solid var(--c-line);}
 .linggo-section:first-child{border-top:0;}
-.linggo-section-heading{width:100%;border:0!important;border-radius:0!important;justify-content:space-between!important;background:transparent!important;padding:10px 8px!important;margin:0!important;font-weight:500!important;font-size:12px!important;letter-spacing:.02em;color:var(--c-cap)!important;}
-.linggo-section-heading:hover{color:var(--c-text)!important;}
-.linggo-section-label{display:inline-flex;align-items:center;gap:6px;min-width:0;}
-.linggo-section-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.linggo-icon{flex:none;opacity:.72;vertical-align:-2px;}
-.linggo-section.open .linggo-section-heading{color:var(--c-sub)!important;}
-.linggo-section.open .linggo-section-heading .linggo-icon{opacity:.9;}
+.linggo-section-header{display:flex;align-items:center;gap:2px;height:36px;padding:0 2px;margin-bottom:2px;border-radius:8px;}
+.linggo-section-header:hover{background:var(--c-hover);}
+.linggo-section-heading{flex:1;min-width:0;display:flex;align-items:center;gap:6px;height:36px;border:0!important;border-radius:0!important;background:transparent!important;padding:0 4px!important;margin:0!important;justify-content:flex-start!important;font-weight:500!important;font-size:14px!important;color:var(--c-text)!important;}
+.linggo-section-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:500;}
+.linggo-chevron{flex:none;width:14px;font-size:10px;color:var(--c-cap);opacity:0;transition:opacity .12s ease;}
+.linggo-section-header:hover .linggo-chevron,.linggo-section-heading:focus-visible .linggo-chevron{opacity:1;}
+.linggo-section.open .linggo-chevron{opacity:.7;}
+.linggo-icon{flex:none;opacity:.85;}
+.linggo-section-actions{flex:none;display:flex;align-items:center;gap:2px;}
+.linggo-section-actions button{width:28px;height:28px;padding:0!important;margin:0!important;justify-content:center;border:0!important;background:transparent!important;color:var(--c-sub);border-radius:6px!important;}
+.linggo-section-actions button:hover{background:var(--c-hover);color:var(--c-text);}
 .linggo-section-heading:hover{background:transparent!important;color:var(--c-text)!important;}
-.linggo-section-body{padding:0 2px 12px;display:grid;gap:6px;}
-.linggo-count{font-size:10px;color:var(--c-cap);font-weight:500;background:transparent;border:1px solid var(--c-line);border-radius:999px;padding:0 7px;line-height:18px;flex:none;}
+.linggo-section-body{padding:0 4px 14px;display:grid;gap:2px;}
+.linggo-count{font-size:11px;color:var(--c-cap);font-weight:400;background:transparent;border:0;padding:0 2px;line-height:1;flex:none;}
 .linggo-chevron{display:inline-block;width:18px;color:var(--c-cap);font-size:11px;}
 .linggo-section-heading>span:first-child{display:inline-flex;align-items:center;gap:4px;min-width:0;}
-.linggo-session-section .linggo-section-body>button.primary{width:100%;justify-content:center;height:36px;border-radius:10px;margin:0 0 2px;font-weight:500;}
+
 .linggo-session-section .linggo-section-body>input{height:32px;border-radius:8px;margin:0;}
 .linggo-session-section .linggo-list{max-height:none;overflow:visible;display:grid;gap:2px;}
-.linggo-session-section .linggo-list li{display:grid;gap:1px;padding:8px 10px;min-height:38px;border-radius:8px;border-left:2px solid transparent;}
+.linggo-session-section .linggo-list li{display:flex;align-items:center;gap:8px;padding:0 8px;height:32px;border-radius:8px;}
 .linggo-session-section .linggo-list li[aria-current="true"]{background:color-mix(in srgb, var(--c-accent) 10%, transparent);border-left-color:var(--c-accent);font-weight:500;}
 .linggo-session-section .linggo-list li:hover{background:var(--c-hover);}
-.linggo-session-title{display:block!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px!important;font-weight:500;color:var(--c-text)!important;line-height:1.35;}
-.linggo-session-meta{display:block!important;font-size:11px!important;margin-top:0;color:var(--c-cap)!important;}
+.linggo-session-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px!important;font-weight:400;color:var(--c-text)!important;line-height:20px;}
+.linggo-session-meta{flex:none;font-size:11px!important;color:var(--c-cap)!important;line-height:1;}
 .linggo-session-meta .running{color:var(--c-accent);}
 .linggo-session-date{padding:10px 8px 4px;color:var(--c-cap);font-size:11px;font-weight:500;list-style:none;}
 .linggo-current-version{background:transparent;border:0;padding:6px 8px;border-radius:8px;margin:0;display:grid;gap:3px;}
