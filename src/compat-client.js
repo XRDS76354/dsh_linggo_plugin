@@ -87,14 +87,20 @@ export function createClientAdapter(ctx, { api, t, source = "linggo" }) {
       throw Error(t("dev.draftBlocked"));
     return result;
   };
-  const newPresentation = async (projectId) => {
+  /** Register presentation + development workspaces so both appear in the DSH sidebar. */
+  const ensureProjectWorkspaces = async (projectId) => {
     const project = (await api("state")).projects.find(
       (p) => p.id === projectId,
     );
     if (!project) throw Error(t("dev.unknownProject"));
-    const workspace = await workspaceFor(project, "presentation");
+    const presentation = await workspaceFor(project, "presentation");
+    const development = await workspaceFor(project, "development");
+    return { project, presentation, development };
+  };
+  const newPresentation = async (projectId) => {
+    const { project, presentation } = await ensureProjectWorkspaces(projectId);
     return openSession(
-      await ctx.sessions.create({ workspaceId: workspace.workspaceId }),
+      await ctx.sessions.create({ workspaceId: presentation.workspaceId }),
     );
   };
   const openHandoff = async (item, project, prompt) => {
@@ -153,6 +159,7 @@ export function createClientAdapter(ctx, { api, t, source = "linggo" }) {
   return {
     capabilities,
     openSession,
+    ensureProjectWorkspaces,
     newPresentation,
     openHandoff,
     mountWorkbench,

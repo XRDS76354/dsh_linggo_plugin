@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Icon } from "./icons.jsx";
 import { zh, en } from "./locales.js";
 import {
   DataSummary,
@@ -203,6 +204,7 @@ function Workbench({
   onReset,
   newPresentation,
   openSession,
+  ensureProjectWorkspaces,
   useSessions,
   useWorkspaces,
 }) {
@@ -429,7 +431,7 @@ function Workbench({
             { className: "linggo-brand" },
             h(
               "div",
-              null,
+              { className: "linggo-brand-text" },
               h("strong", null, "LingGo"),
               h("small", null, t("wb.subtitle")),
             ),
@@ -468,6 +470,7 @@ function Workbench({
                 id: "sessions",
                 title: t("wb.sessions"),
                 badge: String(history.length),
+                icon: h(Icon, { name: "message", size: 14 }),
                 className: "linggo-session-section",
               },
               h(
@@ -563,6 +566,8 @@ function Workbench({
                 const p = await api("createProject", { name });
                 await refresh();
                 setProject(p.id);
+                // Both presentation and development folders show up in DSH immediately.
+                await ensureProjectWorkspaces(p.id);
                 setName("");
                 setProjectDialog(false);
               }),
@@ -1148,7 +1153,14 @@ export function apply(ctx) {
 
   if (enabled) {
     adapter.mountWorkbench(
-      { t, api, onReset, newPresentation, openSession },
+      {
+        t,
+        api,
+        onReset,
+        newPresentation,
+        openSession,
+        ensureProjectWorkspaces: adapter.ensureProjectWorkspaces,
+      },
       Workbench,
     );
   } else {

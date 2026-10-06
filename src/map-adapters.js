@@ -53,31 +53,18 @@ function loadAmap(settings) {
 }
 // Soft gray basemap with enough contrast for route polylines to read on top.
 // Slightly deeper land/water/green than a near-white canvas; roads stay light.
+// Soft gray basemap. IMPORTANT: do not paint featureType "all" geometry —
+// that flattens roads/buildings into the land color and the map looks blank.
+// Style land only, then give roads/boundaries/labels their own tokens.
 const lightStyle = [
-  {
-    featureType: "all",
-    elementType: "geometry",
-    stylers: { color: "#e4e8eb" },
-  },
-  {
-    featureType: "all",
-    elementType: "geometry.fill",
-    stylers: { color: "#e4e8eb" },
-  },
-  {
-    featureType: "water",
-    elementType: "geometry",
-    stylers: { color: "#b7d2e0" },
-  },
-  {
-    featureType: "green",
-    elementType: "geometry",
-    stylers: { color: "#c5d8bf" },
-  },
+  { featureType: "land", elementType: "geometry", stylers: { color: "#e6eaed" } },
+  { featureType: "water", elementType: "geometry", stylers: { color: "#b7d2e0" } },
+  { featureType: "green", elementType: "geometry", stylers: { color: "#c5d8bf" } },
+  { featureType: "building", elementType: "geometry", stylers: { color: "#d5dce2" } },
   {
     featureType: "highway",
     elementType: "geometry",
-    stylers: { color: "#ffffff" },
+    stylers: { color: "#ffffff", "visibility": "on" },
   },
   {
     featureType: "highway",
@@ -87,34 +74,61 @@ const lightStyle = [
   {
     featureType: "arterial",
     elementType: "geometry",
-    stylers: { color: "#f7f8f9" },
+    stylers: { color: "#f7f8f9", "visibility": "on" },
+  },
+  {
+    featureType: "arterial",
+    elementType: "geometry.stroke",
+    stylers: { color: "#d0d6db" },
   },
   {
     featureType: "local",
     elementType: "geometry",
-    stylers: { color: "#f2f4f5" },
+    stylers: { color: "#f2f4f5", "visibility": "on" },
   },
   {
-    featureType: "all",
-    elementType: "labels.text.fill",
-    stylers: { color: "#3d4a55" },
+    featureType: "local",
+    elementType: "geometry.stroke",
+    stylers: { color: "#dce1e5" },
   },
   {
-    featureType: "all",
-    elementType: "labels.text.stroke",
-    stylers: { color: "#e4e8eb", weight: 2 },
+    featureType: "railway",
+    elementType: "geometry",
+    stylers: { color: "#c5ccd2", "visibility": "on" },
   },
-  { featureType: "poi", elementType: "labels", stylers: { visibility: "off" } },
+  {
+    featureType: "boundary",
+    elementType: "geometry",
+    stylers: { color: "#9aa7b2", "visibility": "on" },
+  },
+  {
+    featureType: "boundary",
+    elementType: "geometry.stroke",
+    stylers: { color: "#8a97a3" },
+  },
   {
     featureType: "manmade",
     elementType: "geometry",
     stylers: { color: "#d5dce2" },
   },
   {
-    featureType: "building",
-    elementType: "geometry",
-    stylers: { color: "#d0d6db" },
+    featureType: "all",
+    elementType: "labels.text.fill",
+    stylers: { color: "#3d4a55", "visibility": "on" },
   },
+  {
+    featureType: "all",
+    elementType: "labels.text.stroke",
+    stylers: { color: "#e6eaed", weight: 2 },
+  },
+  {
+    featureType: "all",
+    elementType: "labels.icon",
+    stylers: { "visibility": "on" },
+  },
+  // Keep district/city names; drop only noisy POI icons.
+  { featureType: "poi", elementType: "labels.icon", stylers: { "visibility": "off" } },
+  { featureType: "poi", elementType: "labels.text.fill", stylers: { color: "#6b7782" } },
 ];
 // Each adapter owns its map, listeners and overlays. The caller owns geographic state.
 export async function createMapAdapter(

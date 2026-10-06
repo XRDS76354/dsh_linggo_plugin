@@ -68,6 +68,12 @@ DSH 原生对话、模型选择、草稿、工具记录、取消、权限守卫�
 - 不做 Windows/Linux/原生桌面实机验收（沿用已有待验证项）。
 - 不提交、不合并、不推送。
 
+
+## [S5] Map basemap fidelity, paired workspaces, sidebar hierarchy
+- Baidu styleJson must not paint `featureType: "all"` geometry (that flattens roads into land). Style `land` only; keep highway/arterial/local/railway/boundary/labels visible so zoom reveals more detail like AMap whitesmoke.
+- Creating a project registers **both** presentation and development DSH workspaces immediately (`ensureProjectWorkspaces`), so users see 展示 + 开发 folders without a handoff detour. Disk dirs are already created by `store.createProject`.
+- Left sidebar hierarchy matches DSH/MiMo density: TRAE/Lucide outline icons (24-grid, 2px stroke) on sections (会话/数据/任务/历史), quieter 12px section labels, bordered count chips instead of filled noise, flat data card, 1px row rhythm.
+
 ## Tasks
 - [x] T1: 重写左栏视觉层级与折叠交互 — acceptance: 会话主视觉、数据树导线与 chip、默认折叠策略、48px 图标轨生效，无 10px 元信息 (covers: S2)
 - [x] T2: 重做中栏地图工具条、线路左抽屉、详情 peek、气泡与回放底栏 — acceptance: 工具条统一、浮层不再居中压图、宽屏地图可视 ≥55% (covers: S2)
@@ -79,3 +85,8 @@ DSH 原生对话、模型选择、草稿、工具记录、取消、权限守卫�
 - [x] T8: 百度浅灰底图提高对比度 — acceptance: styleJson 陆地/水系/绿地加深，叠线路可读 (covers: S4)
 
 **Journey log (S4)** — 密处改为同尺寸抽稀而非多 ID 聚类气泡；`showStops` 走 scene + `linggo.map.showStops`；站点按 `visible` 线路配对后再抽稀；百度 `lightStyle` 加深陆地/水系/绿地对比度。
+- [x] T9: 百度 styleJson 去掉 all/geometry，保留道路/边界/标注 — acceptance: 不再整图同色；道路与地名随缩放出现 (covers: S5)
+- [x] T10: 新建项目同步注册展示+开发工作区 — acceptance: createProject 后 DSH 侧栏同时出现两个文件夹 (covers: S5)
+- [x] T11: 左栏图标与主次层级 — acceptance: TRAE 风格线图标、区块标题更安静、计数 chip 降噪 (covers: S5)
+
+**Journey log (S5)** — 百度空白根因是 `all`+`geometry` 把道路涂成陆地色；建项目时 `ensureProjectWorkspaces` 同时 `workspaces.create` 展示与开发目录；侧栏图标用 `src/icons.jsx`（TRAE/Lucide 24 格 2px 线），区块标题降为 12px/500 + 线框计数 chip。

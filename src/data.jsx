@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { SideSection } from "./workbench-ui.jsx";
+import { Icon } from "./icons.jsx";
 const h = React.createElement;
 
 export const dataStyle = `
@@ -100,7 +101,7 @@ export function DataSummary({
     null,
     h(
       SideSection,
-      { id: "data", title: t("wb.data"), badge: String(versions.length) },
+      { id: "data", title: t("wb.data"), badge: String(versions.length), icon: h(Icon, { name: "database", size: 14 }) },
       v
         ? h(
             "div",
@@ -131,6 +132,7 @@ export function DataSummary({
         {
           id: "versions",
           title: t("ui.versionHistory"),
+          icon: h(Icon, { name: "history", size: 13 }),
           initial: false,
           badge: String(Math.max(0, versions.length - 1)),
         },
@@ -171,6 +173,7 @@ export function DataSummary({
       {
         id: "jobs",
         title: t("wb.tasks"),
+        icon: h(Icon, { name: "list", size: 14 }),
         badge: t("ui.jobCounts", {
           running: String(active.length),
           failed: String(jobs.filter((j) => j.status === "failed").length),
@@ -181,7 +184,7 @@ export function DataSummary({
       !jobs.length && h("small", null, t("wb.noTasks")),
       h(
         SideSection,
-        { id: "jobHistory", title: t("ui.taskHistory"), initial: false },
+        { id: "jobHistory", title: t("ui.taskHistory"), initial: false, icon: h(Icon, { name: "history", size: 13 }) },
         ...jobs
           .slice()
           .reverse()
