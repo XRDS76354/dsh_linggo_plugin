@@ -2,11 +2,11 @@
 
 公交工作台插件，目标是把用户自己的公交数据接入地图、DSH 智能体和可替换调度算法。
 
-**第一至第三阶段已在 macOS Web 验收；还不是完整公交产品。** 已实现官方 bundle、独立三栏展示页、按项目隔离的展示/开发会话、开发交接、Host 侧工具限制、数据导入向导、不可变数据版本、内置画布地图与高德适配、智能体查询与地图联动、DRT／配车／班次生成三类内置算法、自定义 Python 算法注册、结果回放与五份工作流程 Skills。打包、隔离 Python 初始化与跨平台验证在第四阶段完成。详见 [验收记录](docs/verification.md) 和 [任务清单](.spec/tasks.md)。不提供地区数据或产品演示数据。
+**第一至第三阶段已在 macOS Web 验收；还不是完整公交产品。** 已实现官方 bundle、独立三栏展示页、按项目隔离的展示/开发会话、开发交接、Host 侧工具限制、数据导入向导、不可变数据版本、内置画布地图与高德适配、智能体查询与地图联动、DRT／配车／班次生成三类内置算法、自定义 Python 算法注册、结果回放与五份工作流程 Skills。打包、隔离 Python 初始化与跨平台验证在第四阶段完成。双版本验收见 [兼容记录](docs/compatibility.md)；分阶段验收详见 [验收记录](docs/verification.md) 和 [任务清单](.spec/tasks.md)。不提供地区数据或产品演示数据。
 
 ## 开发安装
 
-要求 Node.js 22.19+（在 Node 22.23.1 验证）、官方 DSH 0.2.1-alpha.1。无需修改 DSH 源码。
+要求 Node.js 22.19+（在 Node 22.23.1 验证）、官方 DSH `0.2.0-rc.2` 或 `0.2.1-alpha.1`。无需修改 DSH 源码。
 
 ```sh
 npm ci
@@ -21,7 +21,7 @@ dsh --profile linggo --port 3180 --no-open
 
 展示会话只开放 `linggo_status`、`linggo_query`（只读查询当前数据版本）、`linggo_map`（在中间地图显示线路/站点）、`linggo_algorithms`、`linggo_propose_run`、`linggo_results` 和 `skill`；开发会话继续使用用户的 DSH 工具权限。工具限制由 Host 根据持久会话目录执行，不由页面按钮决定。
 
-三栏页的开发交接需要预览并确认后才保存。DSH 开发页的“公交工作台”面板列出交接；打开时进入该项目的开发工作区并把交接填入原生输入框，不会自动发送。再次打开会回到同一个开发会话。已知限制见[验收记录](docs/verification.md#已知限制)。
+三栏页的开发交接需要预览并确认后才保存。DSH 开发页的“公交工作台”面板列出交接；打开时进入该项目的开发工作区。`0.2.1-alpha.1` 使用原生接口预填草稿；`0.2.0-rc.2` 展示完整交接内容，先点击“复制交接内容”，再打开开发会话粘贴。已有草稿会保留，两种方式均不会自动发送。再次打开会回到同一个开发会话。已知限制见[验收记录](docs/verification.md#已知限制)。
 
 ## 导入自己的数据
 
@@ -94,12 +94,12 @@ npm run check:package
 npm pack
 ```
 
-发行白名单仅包含构建文件、Python 数据模块与依赖清单、Python 初始化脚本、bundle 配置、Skill 文档、算法模板、README、许可证与兼容说明。`check:package` 会拒绝任何白名单外文件；实测发行包 31 个文件、约 300 KB，不含数据、日志、凭据或本机路径。源码安装使用仓库中的 lockfile。
+发行白名单仅包含构建文件、Python 数据模块与依赖清单、Python 初始化脚本、bundle 配置、Skill 文档、算法模板、README、许可证与兼容说明。`check:package` 会拒绝任何白名单外文件；当前发行包 32 个文件（含双版本兼容验收记录）、约 300 KB，不含数据、日志、凭据或本机路径。源码安装使用仓库中的 lockfile。
 
 从发行包安装（不经源码目录）：
 
 ```sh
-dsh plugin --profile <profile> add ./dsh-linggo-plugin-0.1.0-alpha.1.tgz
+dsh plugin --profile <profile> add ./dsh-linggo-plugin-0.1.0-alpha.2.tgz
 export DSH_HOME=<该 profile 的 DSH_HOME>
 node <安装目录>/node_modules/dsh-linggo-plugin/scripts/setup-python.mjs
 ```
@@ -114,6 +114,20 @@ node <安装目录>/node_modules/dsh-linggo-plugin/scripts/setup-python.mjs
 - 构建期 Node 依赖（`devDependencies`）：esbuild（MIT）。不随发行包分发。
 
 CPTOND 与地区原始数据不随插件分发，也不因此获得再分发授权；本仓库不包含任何地区数据。
+
+## DSH 兼容维护
+
+`src/compat-client.js` 集中封装工作区、展示会话、开发交接和页面挂载；`src/compat-host.js` 检查权限守卫及认证连接能力。草稿功能按实际 API 检测，不按版本号猜测。旧版不调用 `setDraft` 覆盖原生输入，不通过 DOM 或 localStorage 注入内容。
+
+发行版仅声明经过验证的两个 DSH 版本，不使用 `*` 或无上限范围。DSH/Cordis 及客户端服务所属包列为可选 peer（由 DSH 提供）；缺少必要 API 会明确拒绝启用。缺少 Host `tools.guard` 时不注册业务工具或接口。新增版本须在独立运行目录和独立 `DSH_HOME` 验证，不能替换正在运行的宿主依赖。
+
+```sh
+npm run build
+LINGGO_TEST_PYTHON=/absolute/path/to/python npm test
+npm run test:compat -- /absolute/path/to/rc2-runtime /absolute/path/to/alpha1-runtime
+```
+
+两处 runtime 应分别通过官方 npm 包安装精确版本。`test:compat` 验证官方兼容检查及真实工具执行守卫；页面挂载、交接、流式对话、停止和卸载另用 `scripts/browser-compat.py` 检查。兼容范围不是对未来 DSH 版本的承诺，新增版本须补充证据。
 
 ## 后续阶段
 

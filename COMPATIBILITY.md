@@ -1,11 +1,13 @@
 # Compatibility
 
-- Target DSH: `0.2.1-alpha.1`, local official-source baseline `5badb15009`. Later versions are not assumed compatible.
-- Tested Host: macOS, Node.js 22.23.1, npm-distributed DSH 0.2.1-alpha.1, Microsoft Edge.
+- Declared DSH versions: `0.2.0-rc.2 || 0.2.1-alpha.1`. The original source baseline remains `5badb15009`; rc.2 official baseline is `639ed01`. No later version is assumed compatible.
+- Integration uses capability detection: alpha.1 has generation-safe native draft initialization; rc.2 uses an explicit copy/paste handoff. Both preserve existing drafts and never submit automatically.
+- Development dependencies remain pinned to alpha.1. Client service owners are optional peers supplied by the Host. Exact version matrix tests use separate official runtime installations.
+- Tested Hosts: macOS, Node.js 22.23.1, official npm DSH 0.2.0-rc.2 and 0.2.1-alpha.1, Microsoft Edge. The alpha.2 compatibility matrix uses a local deterministic model fixture, not an external model provider. See [dual-version verification](docs/compatibility.md).
 - Verified in the browser: three-column workbench, native conversation with real model streaming and tool records, tool restriction, development handoff into a native draft, session reuse, narrow layout, Host restart and uninstall. See [docs/verification.md](docs/verification.md).
 - Stage 2 (data import, versions, canvas map, agent query/map tools) verified in the browser with a Python 3.13 venv created by `npm run setup:python`. AMap tiles and PostGIS are implemented but not verified at runtime. The worker requires Python 3.10+.
 - Stage 3 (DRT insertion, fleet assignment, trip generation, confirmed runs, result replay, user Python algorithms, runtime Skills) verified in the browser on local transit data: batch preview → confirm → run → indicators → replay, plus a real model turn that proposed a run, read the results and replayed the better one on the map. `npm test` 15, `npm run test:python` 32. Travel times are straight-line × detour factor ÷ speed, not road-network shortest paths; unverified items are listed in [docs/verification.md](docs/verification.md#已知限制).
-- Desktop app: not verified (the installed desktop build is 0.2.0-rc.2). The desktop → browser link uses `webServer.port` and `connection.authenticatedUrl`.
+- Desktop app: installed version is 0.2.0-rc.2; native desktop UI and protocol launch are not independently verified. Web compatibility for that official runtime is tested separately. The desktop → browser link uses `webServer.port` and `connection.authenticatedUrl`.
 - Windows and Linux: planned, not verified. Platform branches (interpreter names, `bin/` vs `Scripts/`, `windowsHide`), UTF-8 I/O and `join`-based paths are in place, but no machine or CI record exists.
 - Stage 4 packaging: a fresh `DSH_HOME` install from the `npm pack` tarball was verified on macOS (31 files, ~300 KB, no data or credentials), including the packaged worker run through the isolated venv created by `scripts/setup-python.mjs` (pandas 3.0.6) and a browser boot. `dsh plugin add` needs pnpm on PATH (`corepack enable pnpm` if absent).
 - Python dependencies are resolved at setup time from public indexes; the worker needs Python 3.10+. The Python test suite passes on pandas 3.x as well as the development environment's 2.x.

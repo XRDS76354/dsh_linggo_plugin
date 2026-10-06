@@ -9,6 +9,7 @@ import { resolvePython, runWorker } from "./worker.js";
 import { PRESENTATION_TOOLS, presentationOf, toolDenial } from "./policy.js";
 import { createAnalysis, removeResultLeftovers } from "./analysis.js";
 import { registerSkills } from "./skills.js";
+import { requireHostCapabilities, authenticatedWorkbenchUrl } from "./compat-host.js";
 
 export const name = "linggo";
 export const inject = {
@@ -104,6 +105,7 @@ function cleanMapping(input) {
 }
 
 export async function apply(ctx) {
+  requireHostCapabilities(ctx);
   const root = join(process.env.DSH_HOME || join(homedir(), ".dsh"), "linggo");
   await mkdir(join(root, "projects"), { recursive: true });
   const store = new Store(root);
@@ -327,10 +329,7 @@ export async function apply(ctx) {
   const handle = async (operation, input) => {
     switch (operation) {
       case "launch": {
-        if (!ctx.webServer) throw Error("This DSH Host has no web server; open LingGo from DSH Web");
-        const url = new URL(ctx.connection.authenticatedUrl(`http://127.0.0.1:${ctx.webServer.port}/`));
-        url.hash = input.desktop === true ? "linggo=1&desktopReturn=1" : "linggo=1";
-        return { url: url.href };
+        return { url: authenticatedWorkbenchUrl(ctx, input.desktop) };
       }
       case "state":
         return store.read();

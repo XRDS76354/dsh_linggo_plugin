@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { zh, en } from "./locales.js";
 import { DataSummary, ImportWizard, MapView, SettingsView, dataStyle } from "./data.jsx";
 import { AnalysisView, analysisStyle } from "./analysis.jsx";
+import { createClientAdapter, installPresentationStyle, FRAME_SELECTOR } from "./compat-client.js";
 const h = React.createElement;
 
 export const inject = [
@@ -16,9 +17,7 @@ export const inject = [
 ];
 
 const NS = "linggo";
-const PANEL_ID = "linggo";
-const SOURCE = "linggo";
-const FRAME = "div:has(> [data-rightbar-col])";
+const FRAME = FRAME_SELECTOR;
 const LAST_PROJECT = "linggo.project";
 
 const style = `
@@ -479,7 +478,7 @@ function PanelIcon({ size = 20 }) {
   );
 }
 
-function DevPanel({ t, api, onReset, openHandoff, useSessions }) {
+function DevPanel({ t, api, onReset, openHandoff, capabilities, useSessions }) {
   const { state, refresh, loadError } = useLinggoState(api, onReset);
   const { error, busy, note, run } = useAsync(t);
   const [showArchived, setShowArchived] = useState(false);
@@ -547,6 +546,15 @@ function DevPanel({ t, api, onReset, openHandoff, useSessions }) {
         h("small", null, `${projects[item.projectId]?.name ?? item.projectId} · ${when(item.createdAt)}${item.archivedAt ? " · " + t("dev.archived") : ""}`),
         h("p", { style: { whiteSpace: "pre-wrap", margin: "6px 0" } }, item.summary),
         h("small", null, contextLines(t, item, state).join(" · ")),
+        !capabilities.draftInitialization && h("p", { className: "linggo-note" }, t("dev.manualDraft")),
+        h("details", { open: !capabilities.draftInitialization },
+          h("summary", null, t("dev.handoffContent")),
+          h("textarea", { readOnly: true, "aria-label": t("dev.handoffContent"), value: draftPrompt(t, item, projects[item.projectId], state) }),
+          h("button", { disabled: busy, onClick: () => run(async () => {
+            await navigator.clipboard.writeText(draftPrompt(t, item, projects[item.projectId], state));
+            return t("dev.copied");
+          }) }, t("dev.copyDraft")),
+        ),
         h(
           "div",
           { style: { marginTop: 8 } },
@@ -559,10 +567,10 @@ function DevPanel({ t, api, onReset, openHandoff, useSessions }) {
                 run(async () => {
                   const outcome = await openHandoff(item, projects[item.projectId], state);
                   await refresh();
-                  return outcome === "preserved" ? t("dev.preserved") : t("dev.drafted");
+                  return outcome === "manual" ? t("dev.manualOpened") : outcome === "preserved" ? t("dev.preserved") : t("dev.drafted");
                 }),
             },
-            reuse ? t("dev.reopen") : t("dev.open"),
+            reuse ? t("dev.reopen") : t(capabilities.draftInitialization ? "dev.open" : "dev.openManual"),
           ),
           !item.archivedAt &&
             h(
@@ -604,79 +612,14 @@ export function apply(ctx) {
     return () => resets.delete(fn);
   };
 
-  const openSession = (id) => ctx.uiWorkspace.openSession(id);
-  // The composer only accepts input for Sessions that belong to a workspace, so each mode gets one.
-  const workspaceFor = async (project, mode = "development") => {
-    const { cwd } = await api("directory", { projectId: project.id, mode });
-    const view = await ctx.workspaces.create({ path: cwd });
-    const title = t(mode === "development" ? "dev.workspaceTitle" : "wb.workspaceTitle", { name: project.name });
-    if (view.title !== title) await ctx.workspaces.rename(view.workspaceId, title).catch(() => {});
-    // connectWorkspace resolves through the list snapshot, which may trail the create response.
-    for (let i = 0; i < 40; i++) {
-      if (ctx.workspaces.list.getSnapshot().items.some((w) => w.workspaceId === view.workspaceId)) break;
-      await new Promise((r) => setTimeout(r, 50));
-    }
-    return view;
-  };
-
-  const newPresentation = async (projectId) => {
-    const project = (await api("state")).projects.find((p) => p.id === projectId);
-    if (!project) throw Error(t("dev.unknownProject"));
-    const workspace = await workspaceFor(project, "presentation");
-    openSession(await ctx.sessions.create({ workspaceId: workspace.workspaceId }));
-  };
-
-  const openHandoff = async (item, project, state) => {
-    if (!project) throw Error(t("dev.unknownProject"));
-    const prompt = draftPrompt(t, item, project, state);
-    const draft = (binding) => {
-      const outcome = binding ? ctx.conversation.input.requestDraftInitialization(binding, { prompt }) : "blocked";
-      if (outcome === "blocked") throw Error(t("dev.draftBlocked"));
-      return outcome;
-    };
-    const workspace = await workspaceFor(project);
-    if (item.devSessionId && ctx.sessions.list.getSnapshot().byId[item.devSessionId]) {
-      openSession(item.devSessionId);
-      return ctx.sessions.using(item.devSessionId, { source: SOURCE }, async (ref) => {
-        await ref.ready;
-        return draft(ref.binding);
-      });
-    }
-    let devSessionId, outcome;
-    await ctx.uiWorkspace.openWorkspace(workspace.workspaceId, (id) => {
-      devSessionId = id;
-      outcome = draft(ctx.sessions.binding(id));
-    });
-    if (!devSessionId) throw Error(t("dev.draftBlocked"));
-    await api("handoffOpened", { id: item.id, devSessionId });
-    return outcome;
-  };
-
-  ctx.effect(() => {
-    const el = document.createElement("style");
-    el.dataset.linggo = "";
-    el.textContent = style;
-    document.head.append(el);
-    if (enabled) document.documentElement.setAttribute("data-linggo", "");
-    return () => {
-      el.remove();
-      for (const a of ["data-linggo", "data-linggo-blocked", "data-linggo-view"]) document.documentElement.removeAttribute(a);
-    };
-  });
+  const adapter = createClientAdapter(ctx, { api, t });
+  const { openSession, newPresentation, capabilities } = adapter;
+  const openHandoff = (item, project, state) => adapter.openHandoff(item, project, draftPrompt(t, item, project, state));
+  ctx.effect(() => installPresentationStyle(document, style, enabled));
 
   if (enabled) {
-    ctx.slots.inject("shell.overlay", () =>
-      ctx.slots.register(
-        { name: "shell.overlay", id: "linggo-workbench", inject: () => ({ t, api, onReset, newPresentation, openSession }) },
-        Workbench,
-      ),
-    );
-    return;
+    adapter.mountWorkbench({ t, api, onReset, newPresentation, openSession }, Workbench);
+  } else {
+    adapter.mountDevelopment({ t, api, onReset, openHandoff, capabilities }, DevPanel, PanelIcon);
   }
-  ctx.slots.inject("main", () =>
-    ctx.slots.register({ name: "main", key: PANEL_ID, inject: () => ({ t, api, onReset, openHandoff }) }, DevPanel),
-  );
-  ctx.slots.inject("sidebar.panellist", () =>
-    ctx.slots.register({ name: "sidebar.panellist", id: PANEL_ID, order: 10, label: () => t("panel") }, PanelIcon),
-  );
 }
