@@ -21,18 +21,22 @@ export const zh = {
   "wb.handoffPlaceholder": "说明需要在开发会话中实现或修改的功能",
   "wb.preview": "预览交接",
   "wb.previewTitle": "交接预览",
-  "wb.previewNote": "确认后仅保存交接记录。请在 DSH 开发页打开；支持时会预填草稿，旧版需复制粘贴。不会自动发送或执行。",
+  "wb.previewNote":
+    "确认后仅保存交接记录。请在 DSH 开发页打开；支持时会预填草稿，旧版需复制粘贴。不会自动发送或执行。",
   "wb.noSource": "来源展示会话：无",
   "wb.confirm": "确认保存交接",
-  "wb.handoffSaved": "交接已保存。请在 DSH 开发页左侧的“公交工作台”面板中打开。",
+  "wb.handoffSaved":
+    "交接已保存。请在 DSH 开发页左侧的“公交工作台”面板中打开。",
   "wb.return": "返回 DSH",
   "wb.devWeb": "打开 DSH 开发页",
   "wb.devDesktop": "返回 DSH 桌面",
   "wb.map": "地图与分析",
   "wb.welcome": "你的公交数据工作空间",
-  "wb.mapNoData": "地图、分析与回放根据已发布的数据范围显示。请用导入向导导入自己的数据，当前项目缺少：",
+  "wb.mapNoData":
+    "地图、分析与回放根据已发布的数据范围显示。请用导入向导导入自己的数据，当前项目缺少：",
   "wb.mapPending": "已有数据版本，地图图层将在地图模块启用后显示。",
-  "wb.mapHint": "右侧是 DSH 原生对话，仅可查询和使用公交工具；写代码请交接到开发会话。",
+  "wb.mapHint":
+    "右侧是 DSH 原生对话，仅可查询和使用公交工具；写代码请交接到开发会话。",
   "wb.tabWorkspace": "工作区",
   "wb.tabChat": "对话",
   "wb.chat": "对话",
@@ -55,7 +59,8 @@ export const zh = {
   "draft.source": "来源展示会话：{id}",
   "draft.footer": "（此草稿由 LingGo 展示页交接生成，请检查后再发送。）",
   "dev.title": "LingGo 公交工作台",
-  "dev.intro": "三栏公交工作台是独立页面，与这里共享项目数据，但会话互相独立。展示页提交的开发交接显示在下方。",
+  "dev.intro":
+    "三栏公交工作台是独立页面，与这里共享项目数据，但会话互相独立。展示页提交的开发交接显示在下方。",
   "dev.openWeb": "打开三栏工作台 ↗",
   "dev.openBrowser": "在浏览器中打开三栏工作台 ↗",
   "dev.connecting": "正在准备链接…",
@@ -72,7 +77,8 @@ export const zh = {
   "dev.preserved": "已打开开发会话。输入框中已有草稿，未覆盖。",
   "dev.draftBlocked": "开发会话草稿暂不可用，请稍后重试。",
   "dev.workspaceUnavailable": "工作区尚未就绪，请稍后重试。",
-  "dev.manualDraft": "当前 DSH 不支持安全预填草稿。先复制下方交接内容，再打开开发会话粘贴；现有草稿不会被覆盖。",
+  "dev.manualDraft":
+    "当前 DSH 不支持安全预填草稿。先复制下方交接内容，再打开开发会话粘贴；现有草稿不会被覆盖。",
   "dev.handoffContent": "交接完整内容",
   "dev.copyDraft": "复制交接内容",
   "dev.copied": "交接内容已复制。打开开发会话，粘贴并检查后再发送。",
@@ -102,21 +108,27 @@ export const en = {
   "wb.noTasks": "No tasks.",
   "wb.handoff": "Hand off to development",
   "wb.handoffSummary": "Development task summary",
-  "wb.handoffPlaceholder": "Describe the feature to build or change in a development session",
+  "wb.handoffPlaceholder":
+    "Describe the feature to build or change in a development session",
   "wb.preview": "Preview handoff",
   "wb.previewTitle": "Handoff preview",
-  "wb.previewNote": "Confirming only saves the handoff. Open it in DSH: supported hosts prefill a draft; older hosts use copy/paste. Nothing is sent or executed automatically.",
+  "wb.previewNote":
+    "Confirming only saves the handoff. Open it in DSH: supported hosts prefill a draft; older hosts use copy/paste. Nothing is sent or executed automatically.",
   "wb.noSource": "Source presentation session: none",
   "wb.confirm": "Save handoff",
-  "wb.handoffSaved": "Handoff saved. Open it from the Transit workbench panel on the DSH development page.",
+  "wb.handoffSaved":
+    "Handoff saved. Open it from the Transit workbench panel on the DSH development page.",
   "wb.return": "Back to DSH",
   "wb.devWeb": "Open the DSH development page",
   "wb.devDesktop": "Return to DSH desktop",
   "wb.map": "Map and analysis",
   "wb.welcome": "Your transit data workspace",
-  "wb.mapNoData": "Map, analysis and replay follow the extent of published data. Import your own data with the wizard; this project still needs:",
-  "wb.mapPending": "Data versions exist; layers appear once the map module is enabled.",
-  "wb.mapHint": "The native DSH conversation on the right can only query and use transit tools; hand off coding to a development session.",
+  "wb.mapNoData":
+    "Map, analysis and replay follow the extent of published data. Import your own data with the wizard; this project still needs:",
+  "wb.mapPending":
+    "Data versions exist; layers appear once the map module is enabled.",
+  "wb.mapHint":
+    "The native DSH conversation on the right can only query and use transit tools; hand off coding to a development session.",
   "wb.tabWorkspace": "Workspace",
   "wb.tabChat": "Chat",
   "wb.chat": "Chat",
@@ -126,7 +138,8 @@ export const en = {
   "need.timetable": "Timetable (planned trips)",
   "need.ridership": "Time-binned ridership or OD",
   "cover.title": "Choose a presentation session",
-  "cover.body": "Only this project's presentation sessions appear here; development sessions never do.",
+  "cover.body":
+    "Only this project's presentation sessions appear here; development sessions never do.",
   "cover.noProject": "Create or choose a project on the left first.",
   "cover.restore": "Restore the latest presentation session",
   "ctx.dataVersion": "Data version: {value}",
@@ -137,9 +150,11 @@ export const en = {
   "draft.context": "Context:",
   "draft.project": "Project: {name} ({id})",
   "draft.source": "Source presentation session: {id}",
-  "draft.footer": "(Draft generated from a LingGo handoff. Review before sending.)",
+  "draft.footer":
+    "(Draft generated from a LingGo handoff. Review before sending.)",
   "dev.title": "LingGo transit workbench",
-  "dev.intro": "The three-column workbench is a separate page that shares project data with this one; sessions stay separate. Handoffs from it appear below.",
+  "dev.intro":
+    "The three-column workbench is a separate page that shares project data with this one; sessions stay separate. Handoffs from it appear below.",
   "dev.openWeb": "Open the three-column workbench ↗",
   "dev.openBrowser": "Open the three-column workbench in a browser ↗",
   "dev.connecting": "Preparing link…",
@@ -152,16 +167,21 @@ export const en = {
   "dev.open": "Open a development session with the draft",
   "dev.reopen": "Return to the development session",
   "dev.archive": "Archive",
-  "dev.drafted": "Development session opened with the handoff in the input box. Review before sending.",
+  "dev.drafted":
+    "Development session opened with the handoff in the input box. Review before sending.",
   "dev.preserved": "Development session opened. Its existing draft was kept.",
-  "dev.draftBlocked": "The development session draft is unavailable; try again shortly.",
+  "dev.draftBlocked":
+    "The development session draft is unavailable; try again shortly.",
   "dev.workspaceUnavailable": "The workspace is not ready; try again shortly.",
-  "dev.manualDraft": "This DSH cannot safely prefill drafts. Copy the handoff below, then open the development session and paste it. Existing drafts are preserved.",
+  "dev.manualDraft":
+    "This DSH cannot safely prefill drafts. Copy the handoff below, then open the development session and paste it. Existing drafts are preserved.",
   "dev.handoffContent": "Full handoff content",
   "dev.copyDraft": "Copy handoff",
-  "dev.copied": "Handoff copied. Open the development session, paste and review before sending.",
+  "dev.copied":
+    "Handoff copied. Open the development session, paste and review before sending.",
   "dev.openManual": "Open development session",
-  "dev.manualOpened": "Development session opened. Paste the copied handoff and review before sending.",
+  "dev.manualOpened":
+    "Development session opened. Paste the copied handoff and review before sending.",
   "dev.unknownProject": "The handoff's project no longer exists.",
   "dev.workspaceTitle": "LingGo · {name} · development",
 };
@@ -240,49 +260,58 @@ Object.assign(zh, {
   "tf.wkt_lat": "WKT 点取纬度",
   "tf.seq_hundreds": "站序百位作方向",
   "imp.title": "导入数据",
-  "imp.intro": "数据留在本机：插件读取源文件或数据库，按你确认的字段映射转换为标准实体，并发布为新的不可变数据版本。不会执行模型生成的代码。",
+  "imp.intro":
+    "数据留在本机：插件读取源文件或数据库，按你确认的字段映射转换为标准实体，并发布为新的不可变数据版本。不会执行模型生成的代码。",
   "imp.step1": "1. 数据源",
   "imp.sourceType": "数据源类型",
   "imp.file": "本机文件或文件夹",
   "imp.path": "文件路径",
   "imp.pathHint": "绝对路径，例如 /data/city/route_stops.csv",
-  "imp.formats": "支持 CSV、TSV、Excel（.xlsx）、GeoJSON、Shapefile（.shp 或含 .shp 的 .zip）、GTFS（.zip 或文件夹）。",
+  "imp.formats":
+    "支持 CSV、TSV、Excel（.xlsx）、GeoJSON、Shapefile（.shp 或含 .shp 的 .zip）、GTFS（.zip 或文件夹）。",
   "imp.pgTable": "表名（可选，schema.table）",
-  "imp.pgNote": "以只读事务连接；连接串只用于本次读取，不写入数据版本或任务记录。",
+  "imp.pgNote":
+    "以只读事务连接；连接串只用于本次读取，不写入数据版本或任务记录。",
   "imp.inspect": "检查数据",
   "imp.noTables": "没有找到可读取的表。",
   "imp.step2": "2. 字段映射",
   "imp.table": "表",
   "imp.rows": "行",
   "imp.tableInfo": "{rows} 行 · {cols} 列 · 几何：{geometry}",
-  "imp.gtfs": "识别为 GTFS：将转换为站点、线路、线路站序和时刻表，无需逐列映射。",
+  "imp.gtfs":
+    "识别为 GTFS：将转换为站点、线路、线路站序和时刻表，无需逐列映射。",
   "imp.entity": "目标数据",
   "imp.crs": "源坐标系",
   "imp.mode": "合并方式",
   "imp.append": "在当前版本基础上追加/补充",
   "imp.replace": "替换此类数据",
-  "imp.mappingNote": "已按列名自动建议，请逐项确认。* 为必填；未映射的必填项会在预览时报错。",
+  "imp.mappingNote":
+    "已按列名自动建议，请逐项确认。* 为必填；未映射的必填项会在预览时报错。",
   "imp.unmapped": "（不映射）",
   "imp.transform": "转换",
   "imp.preview": "预览映射结果",
   "imp.step3": "3. 预览与确认",
-  "imp.sampled": "预览基于前 500 行抽样，源数据共 {total} 行；正式导入处理全部数据。",
+  "imp.sampled":
+    "预览基于前 500 行抽样，源数据共 {total} 行；正式导入处理全部数据。",
   "imp.rEntity": "数据",
   "imp.rIn": "读入",
   "imp.rOut": "保留",
   "imp.rDup": "重复",
   "imp.rDrop": "丢弃原因",
   "imp.sample": "{entity}样例（已转换为 WGS84）",
-  "imp.confirmNote": "确认后在后台运行导入任务，可在左侧任务中取消；成功后发布为新的数据版本，旧版本保留可切换。",
+  "imp.confirmNote":
+    "确认后在后台运行导入任务，可在左侧任务中取消；成功后发布为新的数据版本，旧版本保留可切换。",
   "imp.confirm": "确认导入",
   "imp.back": "返回修改",
   "imp.working": "处理中…",
   "set.title": "设置",
   "set.python": "Python 数据环境",
-  "set.pythonHelp": "数据处理在独立 Python 进程中运行，不继承 DSH 的模型凭据。初始化：在插件目录运行 npm run setup:python。",
+  "set.pythonHelp":
+    "数据处理在独立 Python 进程中运行，不继承 DSH 的模型凭据。初始化：在插件目录运行 npm run setup:python。",
   "set.pythonPath": "Python 解释器路径（留空使用插件环境）",
   "set.amap": "高德地图（可选）",
-  "set.amapHelp": "未配置时使用内置画布地图。配置 Web 端 JS API Key 后可切换高德底图；数据按 WGS84 存储，显示时转换为 GCJ-02。",
+  "set.amapHelp":
+    "未配置时使用内置画布地图。配置 Web 端 JS API Key 后可切换高德底图；数据按 WGS84 存储，显示时转换为 GCJ-02。",
   "set.amapCode": "安全密钥",
   "set.save": "保存设置",
   "set.saved": "已保存。",
@@ -381,49 +410,58 @@ Object.assign(en, {
   "tf.wkt_lat": "WKT point lat",
   "tf.seq_hundreds": "Hundreds of sequence as direction",
   "imp.title": "Import data",
-  "imp.intro": "Data stays on this machine: the plugin reads the source, converts it to standard entities with the field mapping you confirm, and publishes a new immutable data version. No model-generated code runs.",
+  "imp.intro":
+    "Data stays on this machine: the plugin reads the source, converts it to standard entities with the field mapping you confirm, and publishes a new immutable data version. No model-generated code runs.",
   "imp.step1": "1. Source",
   "imp.sourceType": "Source type",
   "imp.file": "Local file or folder",
   "imp.path": "File path",
   "imp.pathHint": "Absolute path, e.g. /data/city/route_stops.csv",
-  "imp.formats": "CSV, TSV, Excel (.xlsx), GeoJSON, Shapefile (.shp or a .zip with one), GTFS (.zip or folder).",
+  "imp.formats":
+    "CSV, TSV, Excel (.xlsx), GeoJSON, Shapefile (.shp or a .zip with one), GTFS (.zip or folder).",
   "imp.pgTable": "Table (optional, schema.table)",
-  "imp.pgNote": "Connects read-only; the connection string is used for this read only and never stored in versions or jobs.",
+  "imp.pgNote":
+    "Connects read-only; the connection string is used for this read only and never stored in versions or jobs.",
   "imp.inspect": "Inspect",
   "imp.noTables": "No readable table found.",
   "imp.step2": "2. Field mapping",
   "imp.table": "Table",
   "imp.rows": "rows",
   "imp.tableInfo": "{rows} rows · {cols} columns · geometry: {geometry}",
-  "imp.gtfs": "Detected GTFS: converted to stops, routes, route stops and timetable without column mapping.",
+  "imp.gtfs":
+    "Detected GTFS: converted to stops, routes, route stops and timetable without column mapping.",
   "imp.entity": "Target data",
   "imp.crs": "Source CRS",
   "imp.mode": "Merge",
   "imp.append": "Add to the current version",
   "imp.replace": "Replace this data",
-  "imp.mappingNote": "Suggested from column names; confirm each one. * is required.",
+  "imp.mappingNote":
+    "Suggested from column names; confirm each one. * is required.",
   "imp.unmapped": "(not mapped)",
   "imp.transform": "Transform",
   "imp.preview": "Preview mapping",
   "imp.step3": "3. Preview and confirm",
-  "imp.sampled": "Preview uses the first 500 of {total} rows; the import processes all of them.",
+  "imp.sampled":
+    "Preview uses the first 500 of {total} rows; the import processes all of them.",
   "imp.rEntity": "Data",
   "imp.rIn": "Read",
   "imp.rOut": "Kept",
   "imp.rDup": "Duplicates",
   "imp.rDrop": "Dropped",
   "imp.sample": "{entity} sample (converted to WGS84)",
-  "imp.confirmNote": "The import runs as a background job you can cancel on the left; on success it becomes a new data version and older versions stay selectable.",
+  "imp.confirmNote":
+    "The import runs as a background job you can cancel on the left; on success it becomes a new data version and older versions stay selectable.",
   "imp.confirm": "Confirm import",
   "imp.back": "Back",
   "imp.working": "Working…",
   "set.title": "Settings",
   "set.python": "Python data environment",
-  "set.pythonHelp": "Data runs in a separate Python process that does not inherit DSH model credentials. Set up with npm run setup:python in the plugin folder.",
+  "set.pythonHelp":
+    "Data runs in a separate Python process that does not inherit DSH model credentials. Set up with npm run setup:python in the plugin folder.",
   "set.pythonPath": "Python interpreter (empty = plugin environment)",
   "set.amap": "AMap (optional)",
-  "set.amapHelp": "Without a key the built-in canvas map is used. With a Web JS API key you can switch to AMap tiles; data is stored as WGS84 and shown as GCJ-02.",
+  "set.amapHelp":
+    "Without a key the built-in canvas map is used. With a Web JS API key you can switch to AMap tiles; data is stored as WGS84 and shown as GCJ-02.",
   "set.amapCode": "Security code",
   "set.save": "Save",
   "set.saved": "Saved.",
@@ -439,7 +477,8 @@ Object.assign(en, {
   "map.trips": "{n} trips",
   "map.reset": "Show all",
   "map.actions": "Agent map actions",
-  "map.noActions": "Map actions from the conversation appear here; click to replay.",
+  "map.noActions":
+    "Map actions from the conversation appear here; click to replay.",
   "map.replay": "Click to replay",
   "map.dir": "Direction {dir}: {n} stops, {from} → {to}",
   "map.stopRoutes": "{n} routes: ",
@@ -465,7 +504,8 @@ Object.assign(zh, {
   "an.choose": "选择算法…",
   "an.user": "自定义",
   "an.inputs": "使用数据（* 为必需，括号内为行数）：",
-  "an.userWarning": "自定义 Python 代码（SHA-256 {sha}…）：接口与结果校验不等于代码安全，它以你的用户权限在本机运行，没有沙箱。",
+  "an.userWarning":
+    "自定义 Python 代码（SHA-256 {sha}…）：接口与结果校验不等于代码安全，它以你的用户权限在本机运行，没有沙箱。",
   "an.sweep": "参数对比",
   "an.noSweep": "不对比（单次运行）",
   "an.sweepValues": "取值，逗号分隔，最多 10 个",
@@ -474,11 +514,13 @@ Object.assign(zh, {
   "an.data": "数据",
   "an.required": "必需",
   "an.rows": "行数",
-  "an.previewNote": "将在数据版本 {version} 上运行。运行为后台任务，可在左侧任务中取消；结果保存为不可变记录。",
+  "an.previewNote":
+    "将在数据版本 {version} 上运行。运行为后台任务，可在左侧任务中取消；结果保存为不可变记录。",
   "an.confirm": "确认运行（{n} 组）",
   "an.started": "已开始运行，进度见左侧任务。",
   "an.register": "注册自定义算法",
-  "an.registerHint": "按插件内 python/templates/linggo_algorithm.py 模板编写，先用 python -m linggo_data.selfcheck 自检。",
+  "an.registerHint":
+    "按插件内 python/templates/linggo_algorithm.py 模板编写，先用 python -m linggo_data.selfcheck 自检。",
   "an.registerPath": "算法 .py 文件的本机路径",
   "an.showSource": "查看源代码",
   "an.reviewed": "我已审阅以上代码，确认以我的用户权限在本机运行",
@@ -560,18 +602,21 @@ Object.assign(en, {
   "tab.analysis": "Analysis",
   "tab.analysisCount": "Analysis ({n})",
   "act.show_run": "Show result",
-  "an.noData": "This project has no data version yet. Import data before running algorithms.",
+  "an.noData":
+    "This project has no data version yet. Import data before running algorithms.",
   "an.loading": "Loading algorithms…",
   "an.proposals": "Runs proposed by the assistant",
   "an.batch": "{n} parameter sets",
-  "an.fromAgent": "From the presentation assistant · {time}. Nothing runs until you preview and confirm.",
+  "an.fromAgent":
+    "From the presentation assistant · {time}. Nothing runs until you preview and confirm.",
   "an.preview": "Preview run",
   "an.dismiss": "Dismiss",
   "an.algorithms": "Algorithms",
   "an.choose": "Choose an algorithm…",
   "an.user": "custom",
   "an.inputs": "Data used (* required, row counts in brackets): ",
-  "an.userWarning": "Custom Python code (SHA-256 {sha}…): interface and result checks do not make code safe. It runs on this computer with your user permissions and no sandbox.",
+  "an.userWarning":
+    "Custom Python code (SHA-256 {sha}…): interface and result checks do not make code safe. It runs on this computer with your user permissions and no sandbox.",
   "an.sweep": "Compare parameter",
   "an.noSweep": "No comparison (single run)",
   "an.sweepValues": "Values, comma separated, up to 10",
@@ -580,14 +625,17 @@ Object.assign(en, {
   "an.data": "Data",
   "an.required": "Required",
   "an.rows": "Rows",
-  "an.previewNote": "Runs on data version {version} as a background job you can cancel in Tasks; results are stored as immutable records.",
+  "an.previewNote":
+    "Runs on data version {version} as a background job you can cancel in Tasks; results are stored as immutable records.",
   "an.confirm": "Confirm run ({n})",
   "an.started": "Run started; see Tasks for progress.",
   "an.register": "Register a custom algorithm",
-  "an.registerHint": "Start from python/templates/linggo_algorithm.py in the plugin and check it with python -m linggo_data.selfcheck.",
+  "an.registerHint":
+    "Start from python/templates/linggo_algorithm.py in the plugin and check it with python -m linggo_data.selfcheck.",
   "an.registerPath": "Local path of the algorithm .py file",
   "an.showSource": "Show source",
-  "an.reviewed": "I reviewed this code and accept that it runs with my user permissions",
+  "an.reviewed":
+    "I reviewed this code and accept that it runs with my user permissions",
   "an.registerConfirm": "Register",
   "an.registered": "Registered: {name}",
   "an.runs": "Results",
@@ -603,8 +651,10 @@ Object.assign(en, {
   "an.runMeta": "Data version {version} · result {id}",
   "an.showOnMap": "Replay on map",
   "an.validation": "Constraint check",
-  "an.validNote": "An independent validator checked every constraint and found no violation.",
-  "an.uncheckedNote": "Kind custom has no built-in validator; the result was not constraint-checked.",
+  "an.validNote":
+    "An independent validator checked every constraint and found no violation.",
+  "an.uncheckedNote":
+    "Kind custom has no built-in validator; the result was not constraint-checked.",
   "an.assumptions": "Assumptions",
   "an.rejected": "Requests not served",
   "an.request": "Request",
@@ -660,4 +710,113 @@ Object.assign(en, {
   "map.activeVehicles": "Vehicles in service {n} / {total}",
   "map.closeRun": "Close result layer",
   "map.runLoading": "Loading result…",
+});
+
+Object.assign(zh, {
+  "ui.projectPanel": "项目",
+  "ui.addProject": "新建项目",
+  "ui.expand": "展开",
+  "ui.collapse": "折叠",
+  "ui.searchSessions": "搜索会话",
+  "ui.currentVersion": "当前版本",
+  "ui.versionHistory": "历史版本",
+  "ui.taskHistory": "任务历史",
+  "ui.maxMap": "最大化 / 还原地图",
+  "ui.maxChat": "最大化 / 还原对话",
+  "ui.resetLayout": "重置布局",
+  "ui.resizeLeft": "调整项目栏宽度",
+  "ui.resizeChat": "调整对话栏宽度",
+  "ui.toggleLeft": "折叠 / 展开项目栏",
+  "ui.toggleChat": "折叠 / 展开对话栏",
+  "ui.quality": "数据提示 · 缺失 {missing} 项 / 质量提醒 {warnings} 项",
+  "set.baidu": "百度地图",
+  "set.baiduHelp":
+    "浏览器端 AK，需开启 JavaScript API 4.0 服务并配置来源限制。更换已加载的密钥后请刷新页面。",
+  "map.baidu": "百度地图",
+  "map.retry": "重试",
+  "map.reloadKey": "密钥已改变，请刷新页面加载新密钥。暂用纯画布。",
+  "map.missingKey": "此底图尚未配置密钥，请在设置中添加。暂用纯画布。",
+  "map.coordinateConflict":
+    "页面已有百度地图使用其他坐标系，请刷新。暂用纯画布。",
+  "map.sdkFailure":
+    "地图 SDK 加载失败，请检查网络、密钥及来源限制。暂用纯画布，可重试或切换底图。",
+  "map.showAll": "全部显示",
+  "map.hideAll": "全部隐藏",
+  "map.details": "线路详情",
+  "map.closeDetail": "关闭线路详情",
+  "map.direction": "线路方向",
+  "map.originalDirection": "原始方向",
+  "map.missingValue": "未提供",
+  "map.importedGeometry": "几何来源：导入线路几何",
+  "map.stopConnections": "几何来源：站间连接（非道路轨迹）",
+  "map.stopDetail": "站点详情",
+  "map.closeStop": "关闭站点详情",
+  "map.visible": "显示线路",
+  "map.search": "搜索线路、起点或终点",
+  "map.truncated": "后端已截断地图方向数据；当前不是完整路网。",
+});
+Object.assign(en, {
+  "ui.projectPanel": "Projects",
+  "ui.addProject": "New project",
+  "ui.expand": "Expand",
+  "ui.collapse": "Collapse",
+  "ui.searchSessions": "Search conversations",
+  "ui.currentVersion": "Current version",
+  "ui.versionHistory": "Version history",
+  "ui.taskHistory": "Task history",
+  "ui.maxMap": "Maximize / restore map",
+  "ui.maxChat": "Maximize / restore chat",
+  "ui.resetLayout": "Reset layout",
+  "ui.resizeLeft": "Resize projects",
+  "ui.resizeChat": "Resize chat",
+  "ui.toggleLeft": "Toggle projects",
+  "ui.toggleChat": "Toggle chat",
+  "ui.quality": "Data notices · {missing} missing / {warnings} warnings",
+  "set.baidu": "Baidu Maps",
+  "set.baiduHelp":
+    "Browser AK with JSAPI 4.0 enabled and allowed origins configured. Refresh after changing a loaded key.",
+  "map.baidu": "Baidu Maps",
+  "map.retry": "Retry",
+  "map.reloadKey": "Key changed. Refresh to load it. Using canvas temporarily.",
+  "map.missingKey":
+    "Configure this map key in Settings. Using canvas temporarily.",
+  "map.coordinateConflict":
+    "An existing Baidu map uses another coordinate system. Refresh. Using canvas temporarily.",
+  "map.sdkFailure":
+    "Map SDK failed to load. Check network, key and allowed origins; retry or switch maps. Using canvas temporarily.",
+  "map.showAll": "Show all",
+  "map.hideAll": "Hide all",
+  "map.details": "Route details",
+  "map.closeDetail": "Close route details",
+  "map.direction": "Route direction",
+  "map.originalDirection": "Original direction",
+  "map.missingValue": "Not provided",
+  "map.importedGeometry": "Geometry: imported route",
+  "map.stopConnections": "Geometry: stop connections (not road tracks)",
+  "map.stopDetail": "Stop details",
+  "map.closeStop": "Close stop details",
+  "map.visible": "Show route",
+  "map.search": "Search routes or endpoints",
+  "map.truncated":
+    "The backend truncated map directions; this is not the complete network.",
+});
+
+Object.assign(zh, { "map.engine": "地图底图", "map.reset": "全网视野" });
+Object.assign(en, { "map.engine": "Map provider", "map.reset": "Fit network" });
+
+Object.assign(zh, { "ui.jobCounts": "运行 {running} · 失败 {failed}" });
+Object.assign(en, { "ui.jobCounts": "{running} running · {failed} failed" });
+
+Object.assign(zh, { "map.noTimetable": "本版本未提供时刻表，班次数未知" });
+Object.assign(en, {
+  "map.noTimetable": "No timetable in this version; trip count unknown",
+});
+
+Object.assign(zh, {
+  "set.amapHelp":
+    "高德 Web JS Key 与安全密钥。配置后默认使用灰白底图；数据保存 WGS84，仅显示转换为 GCJ02。更换已加载密钥后刷新。",
+});
+Object.assign(en, {
+  "set.amapHelp":
+    "AMap Web JS key and security code. Configured maps default to whitesmoke; only display coordinates use GCJ02. Refresh after changing a loaded key.",
 });

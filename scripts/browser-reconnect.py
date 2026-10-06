@@ -38,6 +38,7 @@ def run():
             raise AssertionError("Host restart was not signalled")
         # These requests traverse the restored Connection; no page reload or new auth URL.
         name = "Reconnect fixture " + str(time.time_ns())
+        page.get_by_title("新建项目",exact=True).first.click()
         page.get_by_placeholder("新项目名称（城市或区域）").fill(name)
         page.get_by_role("button", name="创建项目", exact=True).click()
         expect(page.get_by_label("当前项目").locator("option:checked")).to_have_text(name, timeout=20000)

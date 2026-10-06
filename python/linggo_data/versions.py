@@ -235,6 +235,8 @@ def _extent(points, xs, ys):
     flags = core([p[2] for p in points], [p[3] for p in points])
     inner = [p for p, ok in zip(points, flags) if ok]
     outliers = [p[0] for p, ok in zip(points, flags) if not ok]
+    if not inner:
+        return [min(xs), min(ys), max(xs), max(ys)], outliers
     return [min(p[2] for p in inner), min(p[3] for p in inner), max(p[2] for p in inner), max(p[3] for p in inner)], outliers
 
 

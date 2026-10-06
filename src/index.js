@@ -386,14 +386,14 @@ export async function apply(ctx) {
       }
       case "settings": {
         const s = await readSettings();
-        return { amapKey: s.amapKey ?? "", amapSecurityCode: s.amapSecurityCode ?? "", python: s.python ?? "" };
+        return { amapKey: s.amapKey ?? "", amapSecurityCode: s.amapSecurityCode ?? "", baiduAK: s.baiduAK ?? "", python: s.python ?? "" };
       }
       case "saveSettings": {
-        const next = {};
-        for (const key of ["amapKey", "amapSecurityCode", "python"]) {
+        const next = { ...(await readSettings()) };
+        for (const key of ["amapKey", "amapSecurityCode", "baiduAK", "python"]) {
           const v = input[key];
           if (v !== undefined && (typeof v !== "string" || v.length > 1000)) throw Error(`Invalid ${key}`);
-          if (v) next[key] = v.trim();
+          if (v !== undefined) { if (v.trim()) next[key] = v.trim(); else delete next[key]; }
         }
         const tmp = `${settingsFile}.${randomBytes(4).toString("hex")}.tmp`;
         await writeFile(tmp, JSON.stringify(next, null, 2), { mode: 0o600 });

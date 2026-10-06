@@ -2,7 +2,7 @@
 
 公交工作台插件，目标是把用户自己的公交数据接入地图、DSH 智能体和可替换调度算法。
 
-**第一至第三阶段已在 macOS Web 验收；还不是完整公交产品。** 已实现官方 bundle、独立三栏展示页、按项目隔离的展示/开发会话、开发交接、Host 侧工具限制、数据导入向导、不可变数据版本、内置画布地图与高德适配、智能体查询与地图联动、DRT／配车／班次生成三类内置算法、自定义 Python 算法注册、结果回放与五份工作流程 Skills。打包、隔离 Python 初始化与跨平台验证在第四阶段完成。双版本验收见 [兼容记录](docs/compatibility.md)；分阶段验收详见 [验收记录](docs/verification.md) 和 [任务清单](.spec/tasks.md)。不提供地区数据或产品演示数据。
+**第一至第三阶段已在 macOS Web 验收；还不是完整公交产品。** 已实现官方 bundle、独立三栏展示页、按项目隔离的展示/开发会话、开发交接、Host 侧工具限制、数据导入向导、不可变数据版本、内置画布、高德灰白与百度浅色地图适配、智能体查询与地图联动、DRT／配车／班次生成三类内置算法、自定义 Python 算法注册、结果回放与五份工作流程 Skills。打包、隔离 Python 初始化与跨平台验证在第四阶段完成。双版本验收见 [兼容记录](docs/compatibility.md)；分阶段验收详见 [验收记录](docs/verification.md) 和 [任务清单](.spec/tasks.md)。不提供地区数据或产品演示数据。
 
 ## 开发安装
 
@@ -41,7 +41,11 @@ npm run setup:python -- --index-url https://pypi.tuna.tsinghua.edu.cn/simple
 4. “预览映射结果”显示读入、保留、重复与丢弃原因和样例；确认后才在后台导入，可随时取消。改动映射后必须重新预览。
 5. 成功导入生成新的不可变数据版本（统一存为 WGS84），可在左侧切换版本。失败或取消不会留下半成品。
 
-地图默认使用内置画布；在“设置”中填写高德 Web JS Key 与安全密钥后切换为高德底图（显示时转换为 GCJ02）。质量警告（例如疑似混合上下行、远离主要范围的站点）显示在地图上方。
+地图首次进入优先使用已配置的高德 `amap://styles/whitesmoke` 灰白底图；只有百度 AK 时使用百度 JSAPI 4.0 浅色底图；都未配置时使用纯画布。之后记住用户选择。设置中填写自己的高德 Web JS Key / 安全密钥或百度浏览器 AK；分析数据保留 WGS84，显示时转换为 GCJ02，百度在创建地图前固定 GCJ02。SDK 加载失败时提示、可重试并临时回退画布，不覆盖底图偏好。更换已加载的地图密钥后刷新页面。
+
+两条分隔线可以拖动、用方向键调整（Shift 加速）、双击或 Home 复位；分隔线按钮折叠左右栏。地图与对话可以最大化、还原，原生输入草稿和生成不中断。窄屏自动压缩对话和临时收起左栏，低于 900px 使用项目／地图／对话标签；不会覆盖保存宽度。偏好仅写 `linggo.*` 浏览器键，不影响 DSH 开发页。
+
+线路浮层支持按名称和起终点搜索、单线路显隐、全部显示／隐藏、折叠和虚拟滚动。点击地图上的线路或站点打开详情，站序可定位站点、站点可联动途经线路。选择线路高亮但不隐藏其他线路，选择隐藏线路会恢复显示。地图容器不足 900px 时线路控制和详情为互斥抽屉；回放在底部。缺少时刻表时不把班次数展示为已知零，不虚构里程、客流和道路轨迹。质量提示可展开；后端截断明确提示。完整操作、配置和验收限制见 [工作台升级说明](docs/workbench-ui.md)。
 
 ## 运行调度算法
 
@@ -78,7 +82,7 @@ python -m linggo_data.selfcheck 你的算法.py   # 检查接口并可试跑
 
 ## 数据位置和卸载
 
-运行状态保存于 `$DSH_HOME/linggo`，默认 `~/.dsh/linggo`：项目按随机 ID 隔离展示与开发目录，数据版本位于 `projects/<id>/data/versions`，运行结果位于 `projects/<id>/results/<resultId>/result.json`，注册的自定义算法位于 `projects/<id>/algorithms/<id>.py`（权限 0600），设置（含高德密钥）位于 `settings.json`（权限 0600）。插件只读源文件，不把用户数据写入插件源码目录；PostGIS 连接串不写入版本记录。启动时清理中断运行留下的暂存目录和未登记的结果目录。
+运行状态保存于 `$DSH_HOME/linggo`，默认 `~/.dsh/linggo`：项目按随机 ID 隔离展示与开发目录，数据版本位于 `projects/<id>/data/versions`，运行结果位于 `projects/<id>/results/<resultId>/result.json`，注册的自定义算法位于 `projects/<id>/algorithms/<id>.py`（权限 0600），设置（含地图密钥）位于 `settings.json`（权限 0600）。插件只读源文件，不把用户数据写入插件源码目录；PostGIS 连接串不写入版本记录。启动时清理中断运行留下的暂存目录和未登记的结果目录。
 
 ```sh
 dsh plugin --profile linggo remove dsh-linggo-plugin
@@ -94,12 +98,12 @@ npm run check:package
 npm pack
 ```
 
-发行白名单仅包含构建文件、Python 数据模块与依赖清单、Python 初始化脚本、bundle 配置、Skill 文档、算法模板、README、许可证与兼容说明。`check:package` 会拒绝任何白名单外文件；当前发行包 32 个文件（含双版本兼容验收记录）、约 300 KB，不含数据、日志、凭据或本机路径。源码安装使用仓库中的 lockfile。
+发行白名单仅包含构建文件、Python 数据模块与依赖清单、Python 初始化脚本、bundle 配置、Skill 文档、算法模板、README、许可证与兼容说明。`check:package` 会拒绝任何白名单外文件；当前发行包包含双版本兼容、工作台设置与验收说明，不含数据、日志、凭据或本机路径。源码安装使用仓库中的 lockfile。
 
 从发行包安装（不经源码目录）：
 
 ```sh
-dsh plugin --profile <profile> add ./dsh-linggo-plugin-0.1.0-alpha.2.tgz
+dsh plugin --profile <profile> add ./dsh-linggo-plugin-0.1.1-alpha.1.tgz
 export DSH_HOME=<该 profile 的 DSH_HOME>
 node <安装目录>/node_modules/dsh-linggo-plugin/scripts/setup-python.mjs
 ```
@@ -108,10 +112,10 @@ node <安装目录>/node_modules/dsh-linggo-plugin/scripts/setup-python.mjs
 
 ## 许可证与第三方
 
-自研代码 MIT，见 [LICENSE](LICENSE)。发行包不内联第三方源码：Host 与客户端分别以 `external` 打包（客户端依赖 DSH 提供的 React），第三方依赖在安装时从公开发布源获取，仍按其自身许可证使用。
+自研代码 MIT，见 [LICENSE](LICENSE)。Host 依赖和客户端 React 由 DSH 提供。客户端内联百度官方加载器 `@baidumap/jsapi-loader@1.0.0`（MIT），许可与作者说明随包保存于 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。在线地图 SDK 与底图由供应商加载，不随发行包再分发。
 
 - 运行时 Python 依赖（`python/requirements.txt`）：pandas（BSD-3-Clause）、openpyxl（MIT）、pyshp（MIT）、pyproj（MIT）；可选 PostGIS 驱动 psycopg（LGPL-3.0）。
-- 构建期 Node 依赖（`devDependencies`）：esbuild（MIT）。不随发行包分发。
+- 构建期 Node 依赖（`devDependencies`）：esbuild（MIT）。esbuild 不随发行包分发；百度加载器随客户端构建内联。
 
 CPTOND 与地区原始数据不随插件分发，也不因此获得再分发授权；本仓库不包含任何地区数据。
 
@@ -132,6 +136,6 @@ npm run test:compat -- /absolute/path/to/rc2-runtime /absolute/path/to/alpha1-ru
 ## 后续阶段
 
 1. ~~DSH 集成~~（已完成，桌面待验收）。
-2. ~~数据导入、数据版本、地图与质量检查~~（已完成，PostGIS 和高德底图待实机验收）。
+2. ~~数据导入、数据版本、地图与质量检查~~（已完成，PostGIS 和百度真实底图待实机验收）。
 3. ~~DRT、常规公交配车/客流班次、实验场景、Python 算法接口和 Skills~~（已完成，见上）。
 4. ~~预构建发行包、隔离 Python 初始化、发行前审计与许可说明~~（已完成）；三平台安装验证仅覆盖 macOS，Windows/Linux 为待办。

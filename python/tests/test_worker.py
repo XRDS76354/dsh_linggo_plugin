@@ -207,3 +207,11 @@ class VersionTest(Fixture):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GeometryExtentTest(Fixture):
+    def test_route_geometry_without_stations(self):
+        pd.DataFrame([{"route_id":"R", "route_name":"Fixture", "direction":"original", "geometry":"[[120.1,30.1],[120.2,30.2]]"}]).to_csv(self.path("routes.csv"),index=False)
+        result=versions.map_data(self.dir)
+        self.assertEqual(result["bbox"],[120.1,30.1,120.2,30.2])
+        self.assertEqual(result["stops"],[])
