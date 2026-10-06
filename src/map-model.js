@@ -62,6 +62,8 @@ export function routeColor(id) {
   for (const c of String(id)) n = (n * 31 + c.charCodeAt(0)) >>> 0;
   return colors[n % colors.length];
 }
+export const STOP_RADIUS = 3;
+export const STOP_RADIUS_SELECTED = 4.5;
 export function bounds(points) {
   let b = [Infinity, Infinity, -Infinity, -Infinity];
   for (const p of points) {
@@ -153,7 +155,7 @@ export function hitLine(point, lines, project, threshold = 7) {
   return hit;
 }
 export function visibleScene(scene, project, box) {
-  const { model, visible, selection } = scene;
+  const { model, visible, selection, showStops = true } = scene;
   const lines = model.lines
     .filter(
       (l) =>
@@ -164,26 +166,39 @@ export function visibleScene(scene, project, box) {
       ...l,
       path: simplify(l.path, project, l.id === selection.routeId ? 0.5 : 1.5),
     }));
+  if (!showStops) return { lines, stops: [] };
+  // Stops pair with route visibility: only stops on currently shown routes.
+  const allowed = new Set();
+  for (const l of model.lines) {
+    if (!visible.has(l.id)) continue;
+    for (const id of l.stops) allowed.add(id);
+  }
   const priority = new Set(
     model.lines
-      .filter((l) => l.id === selection.routeId)
+      .filter((l) => l.id === selection.routeId && visible.has(l.id))
       .flatMap((l) => l.stops),
   );
+  // Keep the open stop bubble anchored even if its routes were just hidden.
   if (selection.stopId) priority.add(selection.stopId);
+  // Thin dense areas for performance, but every drawn marker stays a single
+  // stop at a fixed pixel size — no multi-stop cluster blobs or count glyphs.
   const cells = new Map(),
     stops = [];
   for (const s of model.stops.values()) {
+    const id = s[0];
+    const isPriority = priority.has(id);
+    if (!isPriority && !allowed.has(id)) continue;
     const p = [s[2], s[3]];
-    if (!priority.has(s[0]) && !intersects([p[0], p[1], p[0], p[1]], box))
-      continue;
+    if (!isPriority && !intersects([p[0], p[1], p[0], p[1]], box)) continue;
     const px = project(p);
-    if (priority.has(s[0])) {
-      stops.push({ point: p, ids: [s[0]], selected: true });
+    if (isPriority) {
+      stops.push({ point: p, ids: [id], selected: true });
       continue;
     }
-    const key = Math.floor(px[0] / 28) + ":" + Math.floor(px[1] / 28);
-    if (!cells.has(key)) cells.set(key, { point: p, ids: [] });
-    cells.get(key).ids.push(s[0]);
+    const key = Math.floor(px[0] / 24) + ":" + Math.floor(px[1] / 24);
+    if (cells.has(key)) continue;
+    cells.set(key, true);
+    stops.push({ point: p, ids: [id], selected: false });
   }
-  return { lines, stops: [...cells.values(), ...stops] };
+  return { lines, stops };
 }

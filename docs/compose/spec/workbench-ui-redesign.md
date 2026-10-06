@@ -53,6 +53,15 @@ commits:
 ### 保留（不得回归）
 DSH 原生对话、模型选择、草稿、工具记录、取消、权限守卫、双页面交接、双版本兼容。不修改官方 DSH，不复制聊天实现。数据、凭据、地区内容不进发行包。
 
+
+## [S4] Map stop markers
+- Stops can be hidden independently of routes (toolbar toggle 「隐藏站点 / 显示站点」, default visible; preference `linggo.map.showStops`).
+- When hidden: no stop circles/markers on canvas or provider maps; route lines remain; stop selection via route detail list still works and shows the bubble.
+- Stops pair with route visibility: only stops on currently shown routes are drawn (hidden routes contribute no stop markers; an open stop bubble may stay anchored).
+- Marker size is fixed screen-pixel size (r≈3, selected r≈4.5, stroke 1.25–1.5). Size must NOT grow with zoom level or with cluster membership.
+- Dense-area aggregation may thin drawing for performance but every drawn marker uses the same fixed radius; no count glyphs that enlarge the hit shape. Click on a thinned cell still resolves to a single stop or zooms only when multiple distinct stops share the cell (existing pickStop behavior), without drawing oversized cluster blobs.
+- Selected stop and selected-route stop list remain hittable; canvas hit threshold stays ~9px.
+
 ## [S3] Out of Scope
 - 不改算法、数据导入、Python 环境、打包白名单逻辑（除必要样式类名）。
 - 不新增图表、客流统计、虚构里程/轨迹。
@@ -64,3 +73,9 @@ DSH 原生对话、模型选择、草稿、工具记录、取消、权限守卫�
 - [x] T2: 重做中栏地图工具条、线路左抽屉、详情 peek、气泡与回放底栏 — acceptance: 工具条统一、浮层不再居中压图、宽屏地图可视 ≥55% (covers: S2)
 - [x] T3: 调整三栏默认比例、拖拽/折叠/最大化/窄屏 — acceptance: 272/560+/400，maximize 保留对话不卸载，<900 标签切换可用 (covers: S2; depends: T1, T2)
 - [x] T4: 构建、测试、实际运行并产出同尺寸对照截图，更新 docs/workbench-ui.md — acceptance: npm test 通过，截图对照落盘，文档记录新交互 (covers: S2)
+- [x] T5: 站点图层可隐藏 — acceptance: 工具栏可切换隐藏/显示站点，偏好持久化；隐藏后地图无站点标记，线路仍在 (covers: S4)
+- [x] T6: 站点固定小尺寸、不随缩放/聚类变大 — acceptance: 点击与渲染半径为固定像素；聚类不再放大标记；单元测试覆盖 visibleScene/绘制尺寸约定 (covers: S4; depends: T5)
+- [x] T7: 站点与线路显隐配对 — acceptance: 仅显示勾选线路的站点；全部隐藏后无站点；选中气泡可暂留 (covers: S4)
+- [x] T8: 百度浅灰底图提高对比度 — acceptance: styleJson 陆地/水系/绿地加深，叠线路可读 (covers: S4)
+
+**Journey log (S4)** — 密处改为同尺寸抽稀而非多 ID 聚类气泡；`showStops` 走 scene + `linggo.map.showStops`；站点按 `visible` 线路配对后再抽稀；百度 `lightStyle` 加深陆地/水系/绿地对比度。

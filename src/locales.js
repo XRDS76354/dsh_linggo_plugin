@@ -741,6 +741,8 @@ Object.assign(zh, {
   "map.sdkFailure":
     "地图 SDK 加载失败，请检查网络、密钥及来源限制。暂用纯画布，可重试或切换底图。",
   "map.showAll": "全部显示",
+  "map.hideStops": "隐藏站点",
+  "map.showStops": "显示站点",
   "map.hideAll": "全部隐藏",
   "map.details": "线路详情",
   "map.closeDetail": "关闭线路详情",
@@ -785,6 +787,8 @@ Object.assign(en, {
   "map.sdkFailure":
     "Map SDK failed to load. Check network, key and allowed origins; retry or switch maps. Using canvas temporarily.",
   "map.showAll": "Show all",
+  "map.hideStops": "Hide stops",
+  "map.showStops": "Show stops",
   "map.hideAll": "Hide all",
   "map.details": "Route details",
   "map.closeDetail": "Close route details",

@@ -13,6 +13,8 @@ import {
   visibleScene,
   hitLine,
   bounds,
+  STOP_RADIUS,
+  STOP_RADIUS_SELECTED,
 } from "../src/map-model.js";
 test("layout respects center and chat minimums, compresses without overwriting preferences", () => {
   for (const width of [900, 1024, 1440, 1920])
@@ -72,6 +74,46 @@ test("all 600 directions remain present; clipping preserves selected objects; li
       .length,
     0,
   );
+  // Stops can be hidden independently of routes.
+  const hidden = visibleScene({ ...scene, showStops: false }, project, m.bbox);
+  assert.equal(hidden.stops.length, 0);
+  assert.equal(hidden.lines.length, 600);
+  // Drawn stops are single markers at a fixed pixel radius — never multi-id cluster blobs.
+  const shown = visibleScene({ ...scene, showStops: true }, project, m.bbox);
+  assert.ok(shown.stops.length > 0);
+  assert.ok(shown.stops.every((s) => s.ids.length === 1));
+  assert.equal(STOP_RADIUS, 3);
+  assert.equal(STOP_RADIUS_SELECTED, 4.5);
+  // Stops pair with route visibility: only stops on shown routes are drawn.
+  const onlyR0 = visibleScene(
+    { ...scene, showStops: true, visible: new Set(["r0"]), selection: {} },
+    project,
+    m.bbox,
+  );
+  assert.equal(onlyR0.lines.length, 1);
+  assert.ok(onlyR0.stops.length > 0);
+  assert.ok(onlyR0.stops.every((s) => s.ids[0] === "a" || s.ids[0] === "b"));
+  const none = visibleScene(
+    { ...scene, showStops: true, visible: new Set(), selection: {} },
+    project,
+    m.bbox,
+  );
+  assert.equal(none.stops.length, 0);
+  assert.equal(none.lines.length, 0);
+  // Open stop bubble stays anchored even when its routes are hidden.
+  const bubbled = visibleScene(
+    {
+      ...scene,
+      showStops: true,
+      visible: new Set(),
+      selection: { stopId: "a" },
+    },
+    project,
+    m.bbox,
+  );
+  assert.equal(bubbled.stops.length, 1);
+  assert.equal(bubbled.stops[0].ids[0], "a");
+  assert.equal(bubbled.stops[0].selected, true);
   assert.deepEqual(
     bounds([
       [1, 2],

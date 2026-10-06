@@ -4,7 +4,8 @@ import { createMapAdapter } from "./map-adapters.js";
 import { Replay, buildOverlay, overlayBox } from "./analysis.jsx";
 import { readPreference, writePreference } from "./layout.js";
 const h = React.createElement,
-  ENGINE_KEY = "linggo.map.provider";
+  ENGINE_KEY = "linggo.map.provider",
+  STOPS_KEY = "linggo.map.showStops";
 export function MapView({
   t,
   api,
@@ -30,7 +31,10 @@ export function MapView({
     [actions, setActions] = useState([]),
     [overlay, setOverlay] = useState(null),
     [time, setTime] = useState(0),
-    [anchor, setAnchor] = useState(null);
+    [anchor, setAnchor] = useState(null),
+    [showStops, setShowStops] = useState(
+      () => readPreference(localStorage, STOPS_KEY, true) !== false,
+    );
   const alive = useRef(true);
   useEffect(
     () => () => {
@@ -250,14 +254,14 @@ export function MapView({
     };
   }, [model, settings, engine, retry]);
   const sceneRef = useRef(null);
-  sceneRef.current = { model, visible, selection, overlay, time };
+  sceneRef.current = { model, visible, selection, overlay, time, showStops };
   useEffect(() => {
     adapter.current?.render(sceneRef.current);
     const s = model?.stops.get(selection.stopId);
     setAnchor(
       s && adapter.current ? adapter.current.project([s[2], s[3]]) : null,
     );
-  }, [model, visible, selection, overlay, time]);
+  }, [model, visible, selection, overlay, time, showStops]);
   if (!versionId)
     return h("p", { className: "linggo-note" }, t("wb.mapNoData"));
   if (error && !model)
@@ -329,6 +333,22 @@ export function MapView({
           onClick: () => adapter.current?.setViewport(model.bbox),
         },
         "⌖ " + t("map.reset"),
+      ),
+      h(
+        "button",
+        {
+          type: "button",
+          "aria-pressed": !showStops,
+          title: t(showStops ? "map.hideStops" : "map.showStops"),
+          onClick: () => {
+            setShowStops((old) => {
+              const next = !old;
+              writePreference(localStorage, STOPS_KEY, next);
+              return next;
+            });
+          },
+        },
+        t(showStops ? "map.hideStops" : "map.showStops"),
       ),
       h(
         "span",

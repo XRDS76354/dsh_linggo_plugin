@@ -6,6 +6,8 @@ import {
   visibleScene,
   hitLine,
   routeColor,
+  STOP_RADIUS,
+  STOP_RADIUS_SELECTED,
 } from "./map-model.js";
 import { drawOverlay } from "./analysis.jsx";
 let amapLoad, amapKey, amapCode, baiduKey;
@@ -49,21 +51,28 @@ function loadAmap(settings) {
   });
   return amapLoad;
 }
+// Soft gray basemap with enough contrast for route polylines to read on top.
+// Slightly deeper land/water/green than a near-white canvas; roads stay light.
 const lightStyle = [
   {
     featureType: "all",
     elementType: "geometry",
-    stylers: { color: "#f1f3f4" },
+    stylers: { color: "#e4e8eb" },
+  },
+  {
+    featureType: "all",
+    elementType: "geometry.fill",
+    stylers: { color: "#e4e8eb" },
   },
   {
     featureType: "water",
     elementType: "geometry",
-    stylers: { color: "#d5e3e8" },
+    stylers: { color: "#b7d2e0" },
   },
   {
     featureType: "green",
     elementType: "geometry",
-    stylers: { color: "#e0e8df" },
+    stylers: { color: "#c5d8bf" },
   },
   {
     featureType: "highway",
@@ -71,21 +80,41 @@ const lightStyle = [
     stylers: { color: "#ffffff" },
   },
   {
+    featureType: "highway",
+    elementType: "geometry.stroke",
+    stylers: { color: "#c5ccd2" },
+  },
+  {
     featureType: "arterial",
     elementType: "geometry",
-    stylers: { color: "#ffffff" },
+    stylers: { color: "#f7f8f9" },
   },
   {
     featureType: "local",
     elementType: "geometry",
-    stylers: { color: "#ffffff" },
+    stylers: { color: "#f2f4f5" },
   },
   {
     featureType: "all",
     elementType: "labels.text.fill",
-    stylers: { color: "#68747e" },
+    stylers: { color: "#3d4a55" },
+  },
+  {
+    featureType: "all",
+    elementType: "labels.text.stroke",
+    stylers: { color: "#e4e8eb", weight: 2 },
   },
   { featureType: "poi", elementType: "labels", stylers: { visibility: "off" } },
+  {
+    featureType: "manmade",
+    elementType: "geometry",
+    stylers: { color: "#d5dce2" },
+  },
+  {
+    featureType: "building",
+    elementType: "geometry",
+    stylers: { color: "#d0d6db" },
+  },
 ];
 // Each adapter owns its map, listeners and overlays. The caller owns geographic state.
 export async function createMapAdapter(
@@ -335,21 +364,16 @@ export async function createMapAdapter(
       }
       for (const st of rendered.stops) {
         const [x, y] = project(st.point),
-          r = st.ids.length > 1 ? 6 : st.selected ? 4 : 2.3,
+          r = st.selected ? STOP_RADIUS_SELECTED : STOP_RADIUS,
           color = st.selected ? "#4275dc" : "#71808a";
         if (engine === "canvas") {
           g.fillStyle = "#fff";
           g.strokeStyle = color;
-          g.lineWidth = 1.5;
+          g.lineWidth = 1.25;
           g.beginPath();
           g.arc(x, y, r, 0, Math.PI * 2);
           g.fill();
           g.stroke();
-          if (st.ids.length > 1) {
-            g.fillStyle = color;
-            g.font = "9px system-ui";
-            g.fillText(st.ids.length, x + 7, y + 3);
-          }
         } else {
           const p = gcj(st.point);
           let o;
@@ -359,18 +383,19 @@ export async function createMapAdapter(
               radius: r,
               fillColor: "#fff",
               strokeColor: color,
-              strokeWeight: 1.5,
+              strokeWeight: 1.25,
               fillOpacity: 1,
               zIndex: 30,
             });
           else {
+            // Keep on-screen size fixed: convert the pixel radius at draw time.
             const px = map.pixelToPoint(new SDK.Pixel(x + r, y));
             const radius = map.getDistance(new SDK.Point(...p), px);
             o = new SDK.Circle(new SDK.Point(...p), radius, {
               fillColor: "#fff",
               fillOpacity: 1,
               strokeColor: color,
-              strokeWeight: 1.5,
+              strokeWeight: 1.25,
             });
           }
           listen(o, "click", () => pickStop(st));
