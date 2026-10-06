@@ -1,6 +1,6 @@
 export const DEFAULT_LAYOUT = Object.freeze({
-  leftWidth: 264,
-  chatWidth: 420,
+  leftWidth: 272,
+  chatWidth: 400,
   leftOpen: true,
   chatOpen: true,
 });
@@ -11,10 +11,10 @@ export function normalizeLayout(value = {}) {
   return {
     leftWidth: Number.isFinite(value.leftWidth)
       ? clamp(value.leftWidth, 220, 420)
-      : 264,
+      : DEFAULT_LAYOUT.leftWidth,
     chatWidth: Number.isFinite(value.chatWidth)
       ? clamp(value.chatWidth, 320, 760)
-      : 420,
+      : DEFAULT_LAYOUT.chatWidth,
     leftOpen: typeof value.leftOpen === "boolean" ? value.leftOpen : true,
     chatOpen: typeof value.chatOpen === "boolean" ? value.chatOpen : true,
   };
@@ -34,12 +34,22 @@ export function computeLayout(width, preferences, focus = "normal") {
     return { mobile: false, left: 0, chat: width, center: 0, reserved: 0 };
   if (focus === "map")
     return { mobile: false, left: 0, chat: 0, center: width, reserved: width };
+  // Prefer a roomy map: compress sides before shrinking the center.
+  // Absolute floor stays 400 so narrow desktops remain usable.
+  const centerFloor = 400;
+  const centerPreferred = 560;
+  const chatFloor = p.chatOpen ? 320 : 40;
   let left = p.leftOpen ? p.leftWidth : 48;
-  const chatMin = p.chatOpen ? 320 : 40;
-  if (width - left - chatMin - 16 < 400) left = 48;
-  const chat = p.chatOpen
-    ? Math.min(p.chatWidth, 760, width * 0.6, width - left - 416)
-    : 40;
+  const fits = (side) => width - side - chatFloor - 16;
+  if (fits(left) < centerPreferred && fits(48) >= centerPreferred) left = 48;
+  if (fits(left) < centerFloor) left = 48;
+  const chatCeiling = Math.min(
+    p.chatWidth,
+    760,
+    width * 0.6,
+    Math.max(chatFloor, width - left - centerFloor - 16),
+  );
+  const chat = p.chatOpen ? Math.min(p.chatWidth, chatCeiling) : 40;
   const center = width - left - chat - 16;
   return { mobile: false, left, chat, center, reserved: width - chat - 8 };
 }

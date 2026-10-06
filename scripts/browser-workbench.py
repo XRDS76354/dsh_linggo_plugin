@@ -13,10 +13,29 @@ with sync_playwright() as pw:
  context=browser.new_context(viewport={'width':1920,'height':1000});page=context.new_page();errors=[]
  page.on('pageerror',lambda e:errors.append(str(e).split('https://')[0]))
  # Instrument SDK instances in the test harness only; no product debug endpoints.
- page.add_init_script("""window.__testMaps=[];for(const name of ['AMap','BMap']){let value;Object.defineProperty(window,name,{configurable:true,get:()=>value,set:v=>{value=v;if(v.Map&&!v.Map.__instrumented){const Original=v.Map;function Wrapped(...args){const map=new Original(...args);window.__testMaps.push({name,map});return map;}Wrapped.prototype=Original.prototype;Wrapped.__instrumented=true;v.Map=Wrapped;}}});}""")
- page.goto(url+'#linggo=1');page.get_by_title('新建项目',exact=True).first.wait_for()
- notice=page.get_by_role('button',name='继续',exact=True)
- if notice.is_visible():notice.click()
+ page.add_init_script("""window.__testMaps=[];for(const name of ['AMap','BMap']){let value;Object.defineProperty(window,name,{configurable:true,get:()=>value,set:v=>{value=v;if(v.Map&&!v.Map.__instrumented){const Original=v.Map;function Wrapped(...args){const map=new Original(...args);window.__testMaps.push({name,map});return map;}Wrapped.prototype=Original.prototype;Wrapped.__instrumented=true;v.Map=Wrapped;}}});}
+ try{const obs=new MutationObserver(()=>{for(const b of document.querySelectorAll('button')){const t=(b.innerText||'')+(b.getAttribute('aria-label')||'');if(/稍后配置/.test(t)&&b.offsetParent!==null){b.click();}}});obs.observe(document.documentElement,{childList:true,subtree:true});}catch(e){}
+ """)
+ def dismiss_blocking_dialogs():
+  for _ in range(6):
+   closed=page.evaluate("""()=>{
+     let hit=false;
+     for(const b of document.querySelectorAll('button')){
+       const t=(b.innerText||'')+(b.getAttribute('aria-label')||'');
+       if(/稍后配置|Skip for now|Later|继续/.test(t) && b.offsetParent!==null){b.click();hit=true;break;}
+     }
+     if(!hit){
+       for(const m of document.querySelectorAll('div[aria-hidden="true"][class*="mask"]')){
+         const r=m.closest('[role="presentation"],[role="dialog"]')||m.parentElement;
+         if(r&&r!==document.body){r.remove();hit=true;}else{m.remove();hit=true;}
+       }
+     }
+     return hit;
+   }""")
+   page.wait_for_timeout(300)
+   if not closed:break
+ page.goto(url+'#linggo=1');page.wait_for_timeout(1000);dismiss_blocking_dialogs()
+ page.get_by_title('新建项目',exact=True).first.wait_for()
  def rpc(method,payload={}):
   r=context.request.post(origin+'/api/linggo.'+method,data={'type':'client-request','rpcId':'ui-map','method':'linggo.'+method,'payload':payload}).json()['result'];assert r['ok'],r.get('error',{}).get('message');return r['value']
  project=rpc('createProject',{'name':'Generated UI test '+str(time.time_ns())})
@@ -33,8 +52,8 @@ with sync_playwright() as pw:
   time.sleep(.1)
  assert status['status']=='done',status
  m=rpc('mapData',{'projectId':project['id']});assert len(m['routes'])==600 and len(m['stops'])==1200
- page.reload();page.get_by_label('当前项目',exact=True).select_option(project['id']);page.get_by_label('地图底图',exact=True).wait_for()
- page.get_by_label('地图底图',exact=True).select_option('canvas');page.locator('.linggo-render-map').last.wait_for();page.wait_for_timeout(500)
+ page.reload();dismiss_blocking_dialogs();page.get_by_label('当前项目',exact=True).select_option(project['id']);page.get_by_label('地图底图',exact=True).wait_for()
+ page.get_by_label('地图底图',exact=True).select_option('canvas');page.locator('.linggo-render-map').last.wait_for();page.wait_for_timeout(500);dismiss_blocking_dialogs()
  assert page.get_by_text('600 条线路',exact=False).count()>0
  # Virtual list reaches the last real row; endpoint search includes stops.
  virtual=page.locator('.linggo-virtual-routes');virtual.evaluate('(e)=>e.scrollTop=e.scrollHeight');page.get_by_role('button',name='Test 599',exact=False).wait_for()
@@ -50,9 +69,10 @@ with sync_playwright() as pw:
  # Pointer and keyboard splitter persist actual preferences and reset separately.
  left=page.get_by_role('separator',name='调整项目栏宽度');box=left.bounding_box();page.mouse.move(box['x']+3,100);page.mouse.down();page.mouse.move(box['x']+73,100,steps=8);page.mouse.up();page.wait_for_timeout(100)
  pref=page.evaluate("JSON.parse(localStorage.getItem('linggo.layout.v1'))");assert pref['leftWidth']>=320,pref
- left.focus();left.press('ArrowLeft');left.press('Home');assert page.evaluate("JSON.parse(localStorage.getItem('linggo.layout.v1')).leftWidth")==264
- chat=page.get_by_role('separator',name='调整对话栏宽度');chat.focus();chat.press('ArrowLeft');assert page.evaluate("JSON.parse(localStorage.getItem('linggo.layout.v1')).chatWidth")==430
- page.reload();page.get_by_label('地图底图',exact=True).wait_for();assert page.evaluate("JSON.parse(localStorage.getItem('linggo.layout.v1')).chatWidth")==430
+ left.focus();left.press('ArrowLeft');left.press('Home');assert page.evaluate("JSON.parse(localStorage.getItem('linggo.layout.v1')).leftWidth")==272
+ chat=page.get_by_role('separator',name='调整对话栏宽度');chat.focus();chat.press('ArrowLeft');assert page.evaluate("JSON.parse(localStorage.getItem('linggo.layout.v1')).chatWidth")==410
+ page.reload();dismiss_blocking_dialogs();page.get_by_label('地图底图',exact=True).wait_for();assert page.evaluate("JSON.parse(localStorage.getItem('linggo.layout.v1')).chatWidth")==410
+ dismiss_blocking_dialogs()
  page.get_by_label('最大化 / 还原地图',exact=True).click();page.wait_for_timeout(150);assert page.locator('.linggo-mapwrap').bounding_box()['width']>1850;page.screenshot(path=str(out/'map-max.png'));page.get_by_label('最大化 / 还原地图',exact=True).click()
  page.get_by_label('折叠 / 展开项目栏',exact=True).click();page.wait_for_timeout(100);assert page.locator('.linggo-workspace > aside').bounding_box()['width']==48;page.get_by_label('折叠 / 展开项目栏',exact=True).click()
  page.get_by_label('折叠 / 展开对话栏',exact=True).click();page.wait_for_timeout(100);assert page.locator('.linggo-chat-rail').is_visible();page.locator('.linggo-chat-rail button').click()

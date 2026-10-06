@@ -313,13 +313,30 @@ export function MapView({
       h(
         "button",
         {
+          className: "primary",
           onClick: () => {
             setPanel("routes");
             setCollapsed(!collapsed || (!wide && panel === "detail"));
           },
           "aria-expanded": !collapsed && (!wide ? panel === "routes" : true),
         },
-        "☷ " + t("map.routes") + " · " + model.routeCount,
+        t("map.routes"),
+      ),
+      h(
+        "button",
+        {
+          "aria-label": t("map.reset"),
+          onClick: () => adapter.current?.setViewport(model.bbox),
+        },
+        "⌖ " + t("map.reset"),
+      ),
+      h(
+        "span",
+        { className: "linggo-map-stat" },
+        t("map.summary", {
+          routes: String(model.routeCount),
+          stops: String(model.stops.size),
+        }),
       ),
       h(
         "select",
@@ -331,14 +348,6 @@ export function MapView({
         h("option", { value: "amap" }, t("map.amap")),
         h("option", { value: "baidu" }, t("map.baidu")),
         h("option", { value: "canvas" }, t("map.canvas")),
-      ),
-      h(
-        "button",
-        {
-          "aria-label": t("map.reset"),
-          onClick: () => adapter.current?.setViewport(model.bbox),
-        },
-        "⌖",
       ),
     ),
     error &&
@@ -373,6 +382,7 @@ export function MapView({
           "header",
           null,
           h("strong", null, t("map.routes")),
+          h("span", { className: "linggo-count" }, String(model.routeCount)),
           h(
             "button",
             {
@@ -704,16 +714,68 @@ function VirtualRoutes({
   );
 }
 export const mapStyle = `
-@container(max-height:600px){.linggo-mapwrap:has(.linggo-stop-popup) .linggo-route-panel,.linggo-mapwrap:has(.linggo-stop-popup) .linggo-detail-panel{display:none;}}
-.linggo-mapwrap{container-type:size;position:relative;flex:1;min-height:0;isolation:isolate;overflow:hidden;background:#f1f3f5;}
-.linggo-map-host,.linggo-native-map,.linggo-render-map{position:absolute;inset:0;width:100%;height:100%;}.linggo-map-host{z-index:0;}.linggo-render-map{z-index:2;}
-.linggo-map-tools{position:absolute;left:14px;right:14px;top:14px;display:flex;align-items:center;gap:6px;pointer-events:none;z-index:5;}.linggo-map-tools>*{pointer-events:auto;box-shadow:0 2px 10px #20304012;}.linggo-map-tools select{width:124px;margin:0 0 0 auto;background:var(--c-bg);}.linggo-map-tools button{margin:0;min-height:32px;}
-.linggo-map-card{position:absolute;background:var(--c-bg);color:var(--c-text);border:1px solid var(--c-line);border-radius:12px;box-shadow:0 8px 28px #182c4018;z-index:4;overflow:hidden;}.linggo-map-card header{display:flex;align-items:center;gap:4px;min-width:0;}.linggo-map-card header strong{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}.linggo-map-card header button{border:0;padding:2px 6px;margin:0;background:transparent;}
-.linggo-route-panel{left:14px;top:60px;width:min(288px,calc(100% - 28px));max-height:calc(100% - 104px);padding:12px;display:flex;flex-direction:column;gap:5px;}.linggo-route-panel>small{font-size:11px;}.linggo-route-actions{display:flex;gap:4px;}.linggo-route-actions button{flex:1;justify-content:center;font-size:11px;margin:0;}.linggo-virtual-routes{height:400px;max-height:45vh;min-height:70px;overflow:auto;flex:1;overscroll-behavior:contain;}
-.linggo-route-row{display:flex;align-items:center;gap:7px;padding:5px 3px;border-radius:6px;}.linggo-route-row:hover,.linggo-route-row[aria-current=true]{background:var(--c-hover);}.linggo-route-row input{width:14px;margin:0;flex:none;}.linggo-route-row button{border:0;display:block;min-width:0;flex:1;text-align:left;background:transparent;padding:0;margin:0;}.linggo-route-row button span,.linggo-route-row button small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}.linggo-line-color{width:3px;height:30px;border-radius:2px;flex:none;}.linggo-map-history{font-size:11px;color:var(--c-sub);}.linggo-map-history summary{cursor:pointer;}.linggo-map-history ul{max-height:100px;overflow:auto;}.linggo-map-history li{padding:0;}.linggo-map-history button{font-size:11px;white-space:normal;text-align:left;}
-.linggo-detail-panel{right:14px;top:60px;width:min(288px,calc(100% - 28px));max-height:calc(100% - 104px);padding:12px;overflow:auto;}.linggo-endpoints{font-size:12px;margin:8px 0;}.linggo-stop-list{padding-left:20px;margin-bottom:0;max-height:35vh;overflow:auto;}.linggo-stop-list button{border:0;background:transparent;font-size:12px;text-align:left;margin:0;padding:3px 5px;}.linggo-stop-popup{width:260px;max-height:190px;overflow:auto;padding:10px;z-index:8;}.linggo-route-chips{display:flex;gap:3px;flex-wrap:wrap;margin-top:6px;}.linggo-route-chips button{font-size:11px;padding:3px 6px;margin:0;}
-.linggo-replay-bar{position:absolute;bottom:26px;left:14px;right:14px;background:var(--c-bg);border:1px solid var(--c-line);border-radius:10px;padding:6px 12px;z-index:9;}.linggo-replay-bar .linggo-replay{margin:0;}.linggo-maptag{position:absolute;bottom:4px;left:8px;background:var(--c-bg);padding:1px 6px;border-radius:4px;color:var(--c-sub);font-size:10px;pointer-events:none;z-index:3;}
-.linggo-sdk-error,.linggo-map-warning{position:absolute;bottom:32px;left:14px;right:14px;background:var(--c-bg);border:1px solid var(--c-line);border-radius:8px;padding:8px;z-index:10;font-size:12px;}.linggo-map-warning{bottom:76px;}
-.linggo-mapwrap[data-map-width=narrow] .linggo-route-panel,.linggo-mapwrap[data-map-width=narrow] .linggo-detail-panel{max-height:calc(100% - 120px);}.linggo-mapwrap[data-map-width=narrow] .linggo-stop-popup{top:auto!important;bottom:28px;left:14px!important;width:calc(100% - 28px);max-height:160px;}.linggo-mapwrap:has(.linggo-replay-bar) .linggo-route-panel,.linggo-mapwrap:has(.linggo-replay-bar) .linggo-detail-panel{max-height:calc(100% - 204px);}.linggo-mapwrap:has(.linggo-replay-bar)[data-map-width=narrow] .linggo-stop-popup{bottom:180px;}.linggo-mapwrap:has(.linggo-stop-popup):has(.linggo-replay-bar)[data-map-width=narrow] .linggo-route-panel,.linggo-mapwrap:has(.linggo-stop-popup):has(.linggo-replay-bar)[data-map-width=narrow] .linggo-detail-panel{max-height:calc(100% - 430px);}
-.linggo-mapwrap:has(.linggo-stop-popup)[data-map-width=narrow] .linggo-route-panel,.linggo-mapwrap:has(.linggo-stop-popup)[data-map-width=narrow] .linggo-detail-panel{max-height:calc(100% - 276px);}
+@container(max-height:560px){.linggo-mapwrap:has(.linggo-stop-popup) .linggo-route-panel,.linggo-mapwrap:has(.linggo-stop-popup) .linggo-detail-panel{display:none;}}
+.linggo-mapwrap{container-type:size;position:relative;flex:1;min-height:0;isolation:isolate;overflow:hidden;background:#eef1f4;}
+.linggo-map-host,.linggo-native-map,.linggo-render-map{position:absolute;inset:0;width:100%;height:100%;}
+.linggo-map-host{z-index:0;}
+.linggo-render-map{z-index:2;}
+/* Unified glass toolbar */
+.linggo-map-tools{position:absolute;left:12px;right:12px;top:12px;display:flex;align-items:center;gap:8px;pointer-events:none;z-index:6;padding:6px 8px;border-radius:12px;background:color-mix(in srgb, var(--c-bg) 92%, transparent);border:1px solid var(--c-line);box-shadow:0 4px 18px #182c4014;backdrop-filter:blur(10px);}
+.linggo-map-tools>*{pointer-events:auto;}
+.linggo-map-tools button{margin:0;min-height:32px;border-radius:8px;white-space:nowrap;}
+.linggo-map-tools select{width:120px;margin:0 0 0 auto;height:32px;border-radius:8px;background:var(--c-bg);}
+.linggo-map-tools .linggo-map-stat{margin-left:4px;font-size:11px;color:var(--c-sub);white-space:nowrap;}
+.linggo-map-card{position:absolute;background:color-mix(in srgb, var(--c-bg) 96%, transparent);color:var(--c-text);border:1px solid var(--c-line);border-radius:14px;box-shadow:0 8px 28px #182c4018;z-index:5;overflow:hidden;}
+.linggo-map-card header{display:flex;align-items:center;gap:6px;min-width:0;padding:2px 0 4px;}
+.linggo-map-card header strong{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;}
+.linggo-map-card header button{border:0;padding:2px 8px;margin:0;background:transparent;border-radius:6px;}
+.linggo-map-card header .linggo-count{flex:none;}
+/* Left route drawer */
+.linggo-route-panel{left:12px;top:64px;width:280px;max-height:calc(100% - 96px);padding:12px 12px 10px;display:flex;flex-direction:column;gap:8px;}
+.linggo-route-panel>small{font-size:11px;color:var(--c-cap);}
+.linggo-route-actions{display:flex;gap:6px;}
+.linggo-route-actions button{flex:1;justify-content:center;font-size:12px;margin:0;height:30px;border-radius:8px;}
+.linggo-virtual-routes{height:400px;max-height:48vh;min-height:72px;overflow:auto;flex:1;overscroll-behavior:contain;margin:0 -2px;}
+.linggo-route-row{display:flex;align-items:center;gap:8px;padding:8px 6px;border-radius:10px;}
+.linggo-route-row:hover{background:var(--c-hover);}
+.linggo-route-row[aria-current=true]{background:color-mix(in srgb, var(--c-accent) 10%, transparent);}
+.linggo-route-row input{width:14px;margin:0;flex:none;}
+.linggo-route-row button{border:0;display:block;min-width:0;flex:1;text-align:left;background:transparent;padding:0;margin:0;}
+.linggo-route-row button span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:500;line-height:1.3;}
+.linggo-route-row button small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--c-cap);margin-top:2px;}
+.linggo-line-color{width:3px;height:32px;border-radius:2px;flex:none;}
+.linggo-map-history{font-size:11px;color:var(--c-sub);}
+.linggo-map-history summary{cursor:pointer;padding:4px 0;}
+.linggo-map-history ul{max-height:100px;overflow:auto;}
+.linggo-map-history li{padding:0;}
+.linggo-map-history button{font-size:11px;white-space:normal;text-align:left;}
+/* Right detail peek */
+.linggo-detail-panel{right:12px;top:64px;width:300px;max-height:calc(100% - 96px);padding:12px 14px;overflow:auto;}
+.linggo-endpoints{font-size:12px;margin:8px 0;color:var(--c-sub);}
+.linggo-stop-list{padding-left:18px;margin:0;max-height:32vh;overflow:auto;}
+.linggo-stop-list li{padding:0;}
+.linggo-stop-list button{border:0;background:transparent;font-size:12px;text-align:left;margin:0;padding:5px 6px;width:100%;border-radius:6px;}
+.linggo-stop-list button:hover{background:var(--c-hover);}
+/* Compact stop bubble */
+.linggo-stop-popup{width:240px;max-height:180px;overflow:auto;padding:10px 12px;z-index:8;}
+.linggo-route-chips{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;}
+.linggo-route-chips button{font-size:11px;padding:3px 8px;margin:0;border-radius:999px;}
+/* Replay bottom bar */
+.linggo-replay-bar{position:absolute;bottom:28px;left:12px;right:12px;min-height:48px;background:color-mix(in srgb, var(--c-bg) 94%, transparent);border:1px solid var(--c-line);border-radius:12px;padding:8px 14px;z-index:9;box-shadow:0 4px 18px #182c4014;}
+.linggo-replay-bar .linggo-replay{margin:0;}
+.linggo-maptag{position:absolute;bottom:8px;right:10px;background:color-mix(in srgb, var(--c-bg) 88%, transparent);padding:2px 8px;border-radius:6px;color:var(--c-cap);font-size:11px;pointer-events:none;z-index:3;}
+.linggo-sdk-error,.linggo-map-warning{position:absolute;bottom:36px;left:12px;right:12px;background:var(--c-bg);border:1px solid var(--c-line);border-radius:10px;padding:10px 12px;z-index:10;font-size:12px;box-shadow:0 4px 18px #182c4014;}
+.linggo-map-warning{bottom:88px;}
+/* Narrow map: drawers stack as mutually exclusive sheets */
+.linggo-mapwrap[data-map-width=narrow] .linggo-route-panel,
+.linggo-mapwrap[data-map-width=narrow] .linggo-detail-panel{left:12px;right:12px;width:auto;max-height:calc(100% - 120px);}
+.linggo-mapwrap[data-map-width=narrow] .linggo-stop-popup{top:auto!important;bottom:32px;left:12px!important;width:calc(100% - 24px);max-height:150px;}
+.linggo-mapwrap:has(.linggo-replay-bar) .linggo-route-panel,
+.linggo-mapwrap:has(.linggo-replay-bar) .linggo-detail-panel{max-height:calc(100% - 168px);}
+.linggo-mapwrap:has(.linggo-replay-bar)[data-map-width=narrow] .linggo-stop-popup{bottom:200px;}
+.linggo-mapwrap:has(.linggo-stop-popup):has(.linggo-replay-bar)[data-map-width=narrow] .linggo-route-panel,
+.linggo-mapwrap:has(.linggo-stop-popup):has(.linggo-replay-bar)[data-map-width=narrow] .linggo-detail-panel{max-height:calc(100% - 340px);}
+.linggo-mapwrap:has(.linggo-stop-popup)[data-map-width=narrow] .linggo-route-panel,
+.linggo-mapwrap:has(.linggo-stop-popup)[data-map-width=narrow] .linggo-detail-panel{max-height:calc(100% - 280px);}
 `;
+

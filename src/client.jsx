@@ -371,7 +371,9 @@ function Workbench({
         h(
           "span",
           { className: "linggo-session-meta" },
-          row.running ? "● " + t("wb.running") : sessionTime(row),
+          row.running
+            ? h("span", { className: "running" }, "● " + t("wb.running"))
+            : sessionTime(row),
         ),
       ),
     ];

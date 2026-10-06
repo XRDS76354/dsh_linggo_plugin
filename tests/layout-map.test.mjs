@@ -95,6 +95,6 @@ test('presentation geometry and stylesheet disposal restore the official frame',
  const document={documentElement:{style:{setProperty:(k,v)=>values.set(k,v),removeProperty:k=>values.delete(k)},setAttribute:(k,v)=>attrs.set(k,v),removeAttribute:k=>attrs.delete(k),toggleAttribute:(k,v)=>v?attrs.set(k,''):attrs.delete(k)},head:{append:()=>{}},createElement:()=>({dataset:{},remove:()=>removed=true})};
  const disposeStyle=installPresentationStyle(document,'workbench-only',true);
  const disposeGeometry=applyPresentationGeometry(document,computeLayout(1440,DEFAULT_LAYOUT),{view:'map',focus:'normal',chatOpen:true});
- assert.equal(values.get('--linggo-left'),'264px');assert.equal(attrs.has('data-linggo'),true);
+ assert.equal(values.get('--linggo-left'),'272px');assert.equal(attrs.has('data-linggo'),true);
  disposeGeometry();disposeStyle();assert.equal(values.size,0);assert.equal(attrs.size,0);assert.equal(removed,true);
 });

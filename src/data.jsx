@@ -15,8 +15,15 @@ export const dataStyle = `
 .linggo-row>*{flex:1;min-width:120px;}
 .linggo-progress{height:4px;background:var(--c-line);border-radius:2px;overflow:hidden;margin:4px 0;}
 .linggo-progress>div{height:100%;background:var(--c-accent);}
-
+/* Sidebar data density */
+.linggo-section-body .linggo-list li{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:28px;padding:5px 8px;border-radius:8px;}
+.linggo-section-body .linggo-list li>button{flex:1;min-width:0;text-align:left;border:0;background:transparent;margin:0;padding:0;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.linggo-section-body .linggo-list li>small{flex:none;font-size:11px;color:var(--c-cap);}
+.linggo-section-body .linggo-list.nested{margin-left:10px;border-left:1px solid var(--c-line);padding-left:6px;}
+.linggo-chip{display:inline-flex;align-items:center;font-size:11px;color:var(--c-sub);background:var(--c-hover);border-radius:999px;padding:1px 8px;flex:none;}
+.linggo-chip.ok{color:var(--c-accent);}
 `;
+
 
 const ORDER = [
   "stops",
@@ -57,7 +64,11 @@ export function DataSummary({
       "div",
       { key: job.id, className: "linggo-current-version" },
       h("small", { title: job.title }, job.title),
-      h("small", null, t("job." + job.status)),
+      h(
+        "span",
+        { className: "linggo-chip" + (job.status === "failed" ? "" : " ok") },
+        t("job." + job.status),
+      ),
       job.status === "running" &&
         h(
           React.Fragment,
