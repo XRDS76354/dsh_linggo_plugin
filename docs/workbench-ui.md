@@ -4,7 +4,15 @@
 
 创建项目会同时注册展示与开发工作区（`ensureProjectWorkspaces`），DSH 侧栏立即出现「… · 展示」与「… · 开发」两个文件夹，便于直接进入开发。
 
-左侧对齐 DSH 原生侧栏密度（TRAE/Lucide 24 格线图标：会话 message、数据 database、任务 list、历史 history）：安静品牌行、整宽圆角「＋ 新建展示会话」、项目选择；展示会话 ≥40px 行高、13px 标题 + 11px 日期，选中为浅蓝底 + 左侧 accent 条；数据区版本卡片、实体行数与任务 chip 层级分明；版本历史、任务历史默认折叠。折叠收成 48px 图标轨 + tooltip。底部交接按钮打开摘要与上下文预览，经确认只保存交接，沿用两个 DSH 版本各自的草稿行为。禁用 10px 元信息，字阶统一 13/12/11px。
+左栏在紧凑的品牌行、项目选择下分为同级的「展示会话 / 数据 / 任务」。三块标题均为 36px 高、14px/500/主文字色；标题栏右侧是 28×28px 图标操作。前导 TRAE/Lucide 线图标与折叠箭头共用位置，鼠标移入或键盘焦点进入标题栏时显示箭头，点击标题开合；操作图标不会同时触发折叠。区块以留白分组，列表平铺。
+
+- **展示会话**：默认展开，标题栏「＋」新建展示会话，搜索图标打开搜索并聚焦输入框；关闭搜索清空筛选。每行 32px，标题与弱色时间在同一行，无日期分组。默认显示最近 5 条普通会话，当前与运行中会话额外保留；「显示更多」每次增加 5 条。
+- **数据**：默认收起，标题下保留当前数据的一行摘要，如「站点·线路·站序 · 站点 2,097 · 线路 531」，省略时可悬停查看全文。标题栏导入图标打开导入；展开直接显示数据集列表，每次导入是一条数据集，类型可以不同。行内显示类型组合、导入时间与选中态，点击切换当前数据；默认最近 5 条并保留当前项，再通过「显示更多」展开。空态为「尚未导入数据集」。
+- **任务**：默认收起；新活动任务或新失败会展开提示，同一任务的进度轮询不会打断手动收起。活动项在前，其后最近 5 条历史，最新失败保证可见，其他条目通过「显示更多」展开。完成项为紧凑单行，运行 / 失败项只增加必要的进度、取消操作或错误说明。
+
+有效的既有区块偏好优先于默认值。`linggo.section.sessions/data/jobs` 记录开合，`linggo.section.jobs.attention.<projectId>` 记录已提示事件（queued / running 共用 `active:<id>`，失败为 `failed:<id>`），刷新或切项目返回不重复展开旧任务；临时空列表不清空记录。列表的展开数量在切项目、搜索变化或收起时复位。数据集选择继续使用既有 `selectVersion({ projectId, versionId })` 接口；当前 ID 失效时，与地图一致回退到最近数据集，不迁移存储数据。
+
+整栏折叠仍收成 48px 图标轨 + tooltip。底部交接按钮打开摘要与上下文预览，经确认只保存交接，沿用两个 DSH 版本各自的草稿行为。正文 / 次要 / 注释采用 13/12/11px，不使用 10px 元信息。
 
 分隔线拖动、方向键（Shift 为 40px）调整、双击 / Home 复位。默认比例左 272px（220–420）｜地图 flex（优先 ≥560，绝对下限 400）｜对话 400px（320–760 且不超过视口 60%）。空间不足时先压缩侧栏（左栏可临时收成 48px 图标轨），优先保证地图可视面积。低于 900px 用项目／地图／对话切换。最大化和折叠只改变几何与可见性，不卸载原生对话。布局与区块开合保存在 `linggo.layout.v1` / `linggo.section.*`，底图保存在 `linggo.map.provider`；不会写 DSH 官方布局键。响应式压缩不保存为用户宽度。
 
@@ -36,7 +44,35 @@
 - 删除前端 200 条列表、400 个方向的截断；虚拟滚动显示全部已发布线路，地图按视野裁剪与简化；站点密处同尺寸抽稀，不使用放大聚类气泡。选中对象不被视野裁剪。后端 5000 方向上限仍显式告知，未扩大服务端发布范围。
 - 项目／版本组件按身份重建，异步数据和地图 SDK 结果有失效检查；旧动作仅列入历史，须显式点击。修复仅有线路几何时的范围计算。数据算法的其他审查项不在本次修改范围。
 
+## 左栏 DSH 契约来源
+
+参考仓库 `/Users/xrds/Documents/deepseek-harness` 只读；以下是其仓库内路径和选择器。本插件保留 DSH 原生对话、模型选择、草稿、工具记录、取消、权限守卫、双页面交接与双版本兼容。
+
+| 左栏行为 | 参考源码 |
+|---|---|
+| 36px 标题行、28×28px 操作与内侧焦点环 | `packages/client/ui-workspace/src/client/rows/WorkspaceBrowser.module.css`：`.sectionHeader`、`.iconButton`、`.iconButton:focus-visible` |
+| 32px 会话、34px 工作区、单行标题和弱色时间 | `packages/client/ui-workspace/src/client/rows/Rows.module.css`：`.sessionRow`、`.projectRow`、`.title`、`.time`；LingGo 时间使用至少 11px |
+| hover 时前导图标替换成折叠箭头 | `Rows.module.css`：“Project leading slot: folder by default, expand arrow on row hover.” 注释与 `.projectRow .chevron` / `:hover .folder`；LingGo 同时支持键盘 `:focus-within` |
+| 侧栏背景、主文字色与主题 | `packages/client/ui-sidebar/src/client/SidebarRoot.module.css`：`.root` 的 `--dsw-specific-sidebar-fill`、`--dsw-alias-label-primary` |
+| 溢出项用「显示更多」 | `WorkspaceBrowser.module.css`：`.sessionOverflowButton`；`apps/web/tests/expected/workspace-new-session-folding/sidebar.expected.md`：`Show 11 more sessions` |
+| 在工作区标题旁新建会话 | 同快照的 `New session in {{workspace}}` 图标按钮；不复用 DSH 全局 `.newSession` 大按钮 |
+
+14px/500/主文字色是本次 LingGo 一级标题的产品要求；DSH `.sectionHeader` 本身使用弱色 `--dsw-alias-label-tertiary`。数据摘要、数据集平铺、每次 5 条与任务提示持久化是 LingGo 的信息架构选择，不冒充 DSH 原样实现。
+
 ## 验收记录与限制
+
+2026-10-07 左栏信息架构重做：本轮在 macOS / Node.js 22.23.1 / Edge headless，官方 DSH `0.2.0-rc.2` 与 `0.2.1-alpha.1` 的独立 profile 完成以下验收。使用本地确定性模型与合成数据，不使用业务数据或外部模型凭据。
+
+| 本轮检查 | 结果 |
+|---|---|
+| `npm run build && npm test`，配置已有测试 Python | 30 / 30 通过，0 失败、0 跳过；含新增 5 项分页 / 数据摘要 / attention 测试 |
+| 默认开合、摘要、标题 / 键盘 / 图标操作、搜索、分页、数据集切换 | 两版通过；实测 36px 标题行、14px/500/主色、28px 图标操作、32px 会话行；导入可进入字段映射 |
+| 新活动 / 新失败提示，手动收起后轮询、刷新、跨项目和临时空列表 | 两版浏览器与单元测试通过；异步任务由测试拦截器注入，进度刷新和旧失败不反复展开 |
+| 两版兼容与原生对话、草稿、工具记录、取消、权限、双页交接回归 | 两版安装兼容、真实权限守卫、浏览器回归均通过 |
+| 隔离 profile 合成数据截图：默认、hover、数据展开、任务、显示更多；1920 / 1440 / 1024 / 800px | 两版通过，无页面横向溢出；另通过 600 条线路的显隐、详情、布局和回放回归 |
+| 发行包检查，数据、凭据、截图不进入包 | `npm run check:package` 通过，34 个白名单文件 |
+
+本轮截图与测试记录保存于 `artifacts/sidebar-ia/{rc2,alpha1}/`：`shots/` 为左栏与四种视口截图，`compat-shots/` 为原生对话回归，`map-shots/` 为地图 / 布局回归；均不进入发行包。新建会话仍在生成时属于额外保留项，所以首屏会话总数可以超过 5。
 
 2026-10-06，macOS / Node.js 22.23.1 / Edge headless，独立官方 DSH `0.2.0-rc.2`、`0.2.1-alpha.1` profile，不修改官方源码或用户 profile。测试数据为脚本生成的 600 条虚构线路、1200 个站点，只留隔离目录；不进入产品或发行包。
 
@@ -78,6 +114,7 @@ npm run test:compat -- /absolute/path/to/rc2-runtime /absolute/path/to/alpha1-ru
 python scripts/browser-workbench.py /absolute/path/to/host.log /absolute/path/to/isolated-home --shots /absolute/path/to/screenshots --real-maps
 python scripts/browser-map-adapters.py /absolute/path/to/host.log /absolute/path/to/isolated-home
 python scripts/browser-compat.py /absolute/path/to/host.log /absolute/path/to/isolated-home --shots /absolute/path/to/screenshots
+python scripts/browser-sidebar.py /absolute/path/to/host.log /absolute/path/to/isolated-home --shots /absolute/path/to/sidebar-screenshots
 ```
 
-旧版最后一条添加 `--legacy`。脚本只用于预先配置好的隔离测试 profile；不对用户 profile 运行。安装包不包含脚本夹具、数据、地图截图或凭据。开发修改客户端后 `npm run build`，更新隔离 profile 中安装的构建文件并刷新展示页；Host 修改需重启对应 profile，不需要重建官方 DSH。
+旧版 `browser-compat.py` 添加 `--legacy`；`browser-sidebar.py` 不需要版本参数。脚本只用于预先配置好的隔离测试 profile；不对用户 profile 运行。安装包不包含脚本夹具、数据、地图截图或凭据。开发修改客户端后 `npm run build`，更新隔离 profile 中安装的构建文件并刷新展示页；Host 修改需重启对应 profile，不需要重建官方 DSH。

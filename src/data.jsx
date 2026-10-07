@@ -1,6 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { SideSection } from "./workbench-ui.jsx";
+import { SideSection, useSectionState } from "./workbench-ui.jsx";
 import { Icon } from "./icons.jsx";
+import {
+  ENTITY_ORDER as ORDER,
+  SIDEBAR_PAGE_SIZE,
+  datasetLabel,
+  datasetSummary,
+  isActiveJob,
+  limitSidebarRows,
+  newestJobs,
+  observeJobAttention,
+  projectDatasets,
+} from "./sidebar-model.js";
 const h = React.createElement;
 
 export const dataStyle = `
@@ -16,30 +27,21 @@ export const dataStyle = `
 .linggo-row>*{flex:1;min-width:120px;}
 .linggo-progress{height:4px;background:var(--c-line);border-radius:2px;overflow:hidden;margin:4px 0;}
 .linggo-progress>div{height:100%;background:var(--c-accent);}
-/* Sidebar data density */
-.linggo-section-body .linggo-list li{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:28px;padding:5px 8px;border-radius:8px;}
-.linggo-section-body .linggo-list li>button{flex:1;min-width:0;text-align:left;border:0;background:transparent;margin:0;padding:0;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.linggo-section-body .linggo-list li>small{flex:none;font-size:11px;color:var(--c-cap);}
-.linggo-section-body .linggo-list.nested{margin-left:10px;border-left:1px solid var(--c-line);padding-left:6px;}
-.linggo-chip{display:inline-flex;align-items:center;font-size:11px;color:var(--c-sub);background:var(--c-hover);border-radius:999px;padding:1px 8px;flex:none;}
-.linggo-chip.ok{color:var(--c-accent);}
+/* Task rows share the DSH list rhythm; only live/error details add another line. */
+.linggo-task-row{display:flex;align-items:center;gap:8px;min-height:32px;padding:0 8px;}
+.linggo-task-row .linggo-row-title{flex:1;}
+.linggo-task-row .linggo-task-active{color:var(--c-accent);}
+.linggo-task-row .linggo-task-failed{color:var(--c-err);}
+.linggo-root .linggo-task-cancel{flex:none;display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:0;background:transparent;margin:0;padding:0;color:var(--c-sub);border-radius:6px;}
+.linggo-root .linggo-task-cancel:hover{background:var(--c-hover);color:var(--c-text);}
+.linggo-root .linggo-task-cancel:focus-visible{outline:2px solid var(--dsw-focus-ring-color,var(--c-accent));outline-offset:-2px;}
+.linggo-task-detail{padding:0 8px 6px;min-width:0;}
+.linggo-task-detail .linggo-progress{height:3px;margin:0 0 4px;}
+.linggo-task-message{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;color:var(--c-cap);}
+.linggo-task-detail .linggo-error{color:var(--c-err);font-size:11px;line-height:16px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;}
 `;
 
-
-const ORDER = [
-  "stops",
-  "routes",
-  "route_stops",
-  "trips",
-  "ridership",
-  "od",
-  "demand",
-  "gps",
-  "vehicles",
-  "depots",
-];
-
-/* ----------------------------- Left column: versions and jobs ----------------------------- */
+/* ----------------------------- Left column: datasets and jobs ----------------------------- */
 
 export function DataSummary({
   t,
@@ -53,57 +55,84 @@ export function DataSummary({
   busy,
   openImport,
 }) {
-  const versions = state.dataVersions.filter((v) => v.projectId === project);
-  const current =
-    state.projects.find((p) => p.id === project)?.currentVersionId ??
-    versions.at(-1)?.id;
-  const v = versions.find((v) => v.id === current),
-    active = jobs.filter((j) => ["running", "queued"].includes(j.status)),
-    failed = jobs.filter((j) => j.status === "failed").at(-1);
+  const { datasets, current } = projectDatasets(state, project);
+  const [dataOpen, setDataOpen] = useSectionState("data", false);
+  const [jobsOpen, setJobsOpen] = useSectionState("jobs", false);
+  const [datasetLimit, setDatasetLimit] = useState(SIDEBAR_PAGE_SIZE);
+  const [jobLimit, setJobLimit] = useState(SIDEBAR_PAGE_SIZE);
+  const attention = useRef(new Map());
+  const orderedJobs = newestJobs(jobs, project);
+  const active = orderedJobs.filter(isActiveJob);
+  const failed = orderedJobs.filter((job) => job.status === "failed");
+  const visibleDatasets = limitSidebarRows(
+    datasets.slice().reverse(), datasetLimit, (item) => item.id === current?.id,
+  );
+  const visibleJobs = limitSidebarRows(
+    orderedJobs, jobLimit, (job) => isActiveJob(job) || job.id === failed[0]?.id,
+  );
+  useEffect(() => {
+    setDatasetLimit(SIDEBAR_PAGE_SIZE);
+  }, [project, dataOpen]);
+  useEffect(() => {
+    setJobLimit(SIDEBAR_PAGE_SIZE);
+  }, [project, jobsOpen]);
+  useEffect(() => {
+    const next = observeJobAttention(localStorage, project, jobs, attention.current.get(project));
+    attention.current.set(project, next.tokens);
+    if (next.shouldOpen) setJobsOpen(true);
+  }, [project, jobs, setJobsOpen]);
+
   const renderJob = (job) =>
     h(
-      "div",
-      { key: job.id, className: "linggo-current-version" },
-      h("small", { title: job.title }, job.title),
+      "li",
+      { key: job.id, className: "linggo-task" },
       h(
-        "span",
-        { className: "linggo-chip" + (job.status === "failed" ? "" : " ok") },
-        t("job." + job.status),
-      ),
-      job.status === "running" &&
+        "div",
+        { className: "linggo-task-row" },
+        h("span", { className: "linggo-row-title", title: job.title }, job.title),
         h(
-          React.Fragment,
-          null,
-          h(
-            "div",
-            { className: "linggo-progress" },
-            h("div", {
-              style: { width: Math.round(job.progress * 100) + "%" },
-            }),
-          ),
-          h("small", null, job.message),
-          h(
-            "button",
-            {
-              onClick: () =>
-                run(async () => {
-                  await api("cancelJob", { id: job.id });
-                  await refreshJobs();
-                }),
-            },
-            t("job.cancel"),
-          ),
+          "span",
+          { className: "linggo-row-meta" +
+              (isActiveJob(job) ? " linggo-task-active" : job.status === "failed" ? " linggo-task-failed" : "") },
+          t("job." + job.status),
         ),
-      job.error && h("small", { className: "linggo-error" }, job.error),
+        job.status === "running" && h(
+          "button",
+          {
+            type: "button",
+            className: "linggo-task-cancel",
+            title: t("job.cancel"),
+            "aria-label": t("job.cancel"),
+            disabled: busy,
+            onClick: () => run(async () => {
+              await api("cancelJob", { id: job.id });
+              await refreshJobs();
+            }),
+          },
+          h(Icon, { name: "close", size: 14 }),
+        ),
+      ),
+      job.status === "running" && h(
+        "div",
+        { className: "linggo-task-detail" },
+        h(
+          "div",
+          { className: "linggo-progress", role: "progressbar", "aria-label": job.title,
+            "aria-valuemin": 0, "aria-valuemax": 100, "aria-valuenow": Math.round(job.progress * 100) },
+          h("div", {
+            style: { width: Math.round(job.progress * 100) + "%" },
+          }),
+        ),
+        job.message && h("small", { className: "linggo-task-message", title: job.message }, job.message),
+      ),
+      job.error && h(
+        "div",
+        { className: "linggo-task-detail" },
+        h("small", { className: "linggo-error", title: job.error }, job.error),
+      ),
     );
-  const summary = v
-    ? versionLabel(t, v) +
-      " · " +
-      Object.entries(v.entities ?? {})
-        .slice(0, 3)
-        .map(([k, e]) => t("entity." + k) + " " + e.rows.toLocaleString())
-        .join(" · ")
-    : t("wb.noData");
+  const summaryText = datasetSummary(t, current);
+  const summary = h("div", { className: "linggo-section-summary", title: summaryText }, summaryText);
   return h(
     React.Fragment,
     null,
@@ -112,12 +141,15 @@ export function DataSummary({
       {
         id: "data",
         title: t("wb.data"),
-        badge: versions.length ? String(versions.length) : "",
+        badge: datasets.length ? t("ui.datasetCount", { count: datasets.length }) : "",
         icon: h(Icon, { name: "database", size: 16 }),
-        initial: false,
+        open: dataOpen,
+        onOpenChange: setDataOpen,
+        collapsedSummary: summary,
         actions: h(
           "button",
           {
+            type: "button",
             title: t("data.import"),
             "aria-label": t("data.import"),
             disabled: busy || !project,
@@ -126,59 +158,35 @@ export function DataSummary({
           h(Icon, { name: "plus", size: 16 }),
         ),
       },
-      h("div", { className: "linggo-section-summary" }, summary),
-      v &&
-        h(
-          "div",
-          { className: "linggo-entities" },
-          ...Object.entries(v.entities ?? {}).map(([k, e]) =>
-            h(
-              "div",
-              { key: k },
-              h("span", null, t("entity." + k)),
-              h("span", null, e.rows.toLocaleString()),
-            ),
-          ),
-        ),
+      summary,
       h(
-        SideSection,
-        {
-          id: "datasets",
-          title: t("ui.datasets"),
-          icon: h(Icon, { name: "layers", size: 15 }),
-          initial: false,
-          badge: String(versions.length),
-        },
-        h(
-          "ul",
-          { className: "linggo-list" },
-          ...versions
-            .slice()
-            .reverse()
-            .map((item) =>
-              h(
-                "li",
-                { key: item.id },
-                h(
-                  "button",
-                  {
-                    disabled: busy,
-                    "aria-current": item.id === current ? "true" : undefined,
-                    onClick: () =>
-                      run(async () => {
-                        await api("selectVersion", {
-                          projectId: project,
-                          versionId: item.id,
-                        });
-                        await refresh();
-                      }),
-                  },
-                  versionLabel(t, item),
-                ),
-                h("small", null, new Date(item.createdAt).toLocaleDateString()),
-              ),
-            ),
-        ),
+        "ul",
+        { className: "linggo-sidebar-list", "aria-label": t("ui.datasets") },
+        ...visibleDatasets.rows.map((item) => h(
+          "li",
+          { key: item.id },
+          h(
+            "button",
+            {
+              type: "button",
+              className: "linggo-sidebar-row",
+              disabled: busy,
+              "aria-current": item.id === current?.id ? "true" : undefined,
+              title: datasetSummary(t, item),
+              onClick: () => run(async () => {
+                await api("selectVersion", { projectId: project, versionId: item.id });
+                await refresh();
+              }),
+            },
+            h("span", { className: "linggo-row-title" }, datasetLabel(t, item)),
+            h("span", { className: "linggo-row-meta" }, new Date(item.createdAt).toLocaleDateString()),
+          ),
+        )),
+      ),
+      visibleDatasets.hiddenCount > 0 && h(
+        "button",
+        { type: "button", className: "linggo-show-more", onClick: () => setDatasetLimit((value) => value + SIDEBAR_PAGE_SIZE) },
+        t("ui.showMore", { count: visibleDatasets.hiddenCount }),
       ),
     ),
     h(
@@ -187,35 +195,27 @@ export function DataSummary({
         id: "jobs",
         title: t("wb.tasks"),
         icon: h(Icon, { name: "list", size: 16 }),
-        badge: active.length || jobs.some((j) => j.status === "failed")
+        open: jobsOpen,
+        onOpenChange: setJobsOpen,
+        badge: active.length || failed.length
           ? t("ui.jobCounts", {
               running: String(active.length),
-              failed: String(jobs.filter((j) => j.status === "failed").length),
+              failed: String(failed.length),
             })
           : "",
-        initial: active.length > 0 || !!failed,
       },
-      ...active.map(renderJob),
-      failed && renderJob(failed),
-      !jobs.length && h("small", null, t("wb.noTasks")),
-      ...jobs
-        .slice()
-        .reverse()
-        .filter((j) => !active.includes(j) && j !== failed)
-        .slice(0, 8)
-        .map(renderJob),
+      !orderedJobs.length && h("small", { className: "linggo-section-summary" }, t("wb.noTasks")),
+      h("ul", { className: "linggo-sidebar-list", "aria-label": t("wb.tasks") }, ...visibleJobs.rows.map(renderJob)),
+      visibleJobs.hiddenCount > 0 && h(
+        "button",
+        { type: "button", className: "linggo-show-more", onClick: () => setJobLimit((value) => value + SIDEBAR_PAGE_SIZE) },
+        t("ui.showMore", { count: visibleJobs.hiddenCount }),
+      ),
     ),
   );
 }
 
-export function versionLabel(t, v) {
-  const parts = ORDER.filter((k) => v.entities?.[k]).map((k) =>
-    t("entity." + k),
-  );
-  return parts.length
-    ? parts.slice(0, 3).join(" · ") + (parts.length > 3 ? " …" : "")
-    : v.id.slice(0, 8);
-}
+export const versionLabel = datasetLabel;
 
 /* ----------------------------- Import wizard ----------------------------- */
 

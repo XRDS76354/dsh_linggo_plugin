@@ -47,7 +47,7 @@ def run():
         page.get_by_placeholder("新项目名称（城市或区域）").fill(name)
         page.get_by_role("button", name="创建项目", exact=True).click()
         expect(page.get_by_label("当前项目").locator("option:checked")).to_have_text(name)
-        page.get_by_role("button", name="+ 新建展示会话", exact=True).first.click()
+        page.locator('[data-section="sessions"]').get_by_role("button", name="新建展示会话", exact=True).click()
         box = page.locator('[role=textbox][contenteditable=true]').filter(visible=True).first
         box.wait_for(timeout=15000)
         page.wait_for_function("!document.documentElement.hasAttribute('data-linggo-blocked')")
@@ -87,7 +87,7 @@ def run():
         page.wait_for_timeout(1000)
         page.screenshot(path=str(Path(args.shots, "cancel-state.png")))
         page.get_by_text("已停止", exact=True).filter(visible=True).first.wait_for(timeout=15000)
-        expect(page.locator('.linggo-list li[aria-current="true"]')).not_to_contain_text("运行中", timeout=15000)
+        expect(page.locator('[data-section="sessions"] .linggo-sidebar-row[aria-current="true"] .running')).to_have_count(0, timeout=15000)
 
         page.set_viewport_size({"width": 800, "height": 900})
         page.get_by_role("button", name="对话", exact=True).click()

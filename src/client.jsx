@@ -17,11 +17,13 @@ import {
 } from "./compat-client.js";
 import {
   useWorkbenchLayout,
+  useSectionState,
   Splitter,
   SideSection,
   Modal,
   workbenchStyle,
 } from "./workbench-ui.jsx";
+import { limitSidebarRows, SIDEBAR_PAGE_SIZE } from "./sidebar-model.js";
 const h = React.createElement;
 
 export const inject = [
@@ -224,10 +226,23 @@ function Workbench({
   const [handoffDialog, setHandoffDialog] = useState(false);
   const [sessionSearch, setSessionSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+  const [sessionsOpen, setSessionsOpen] = useSectionState("sessions", true);
+  const [sessionLimit, setSessionLimit] = useState(SIDEBAR_PAGE_SIZE);
+  const searchInput = useRef(null);
   const [tab, setTab] = useState("map");
   const [jobs, setJobs] = useState([]);
   const [runId, setRunId] = useState(null);
   const [proposalCount, setProposalCount] = useState(0);
+  useEffect(() => {
+    setSessionLimit(SIDEBAR_PAGE_SIZE);
+  }, [project, sessionSearch, sessionsOpen]);
+  useEffect(() => {
+    setSessionSearch("");
+    setSearchOpen(false);
+  }, [project]);
+  useEffect(() => {
+    if (searchOpen && sessionsOpen) searchInput.current?.focus();
+  }, [searchOpen, sessionsOpen]);
   const sessions = useSessions((s) => s);
   const archived = useWorkspaces((s) => s.archivedSessionIds);
   const setProject = (id) => {
@@ -338,26 +353,30 @@ function Workbench({
       .toLowerCase()
       .includes(sessionSearch.toLowerCase()),
   );
-  const sessionRows = filteredHistory.map((row) =>
+  const visibleHistory = limitSidebarRows(filteredHistory, sessionLimit,
+    (row) => row.id === current?.id || row.running || row.runningSubagentCount > 0,
+  );
+  const sessionRows = visibleHistory.rows.map((row) =>
     h(
       "li",
-      {
-        key: row.id,
+      { key: row.id },
+      h("button", {
+        type: "button",
+        className: "linggo-sidebar-row",
         "aria-current": row.id === current?.id ? "true" : undefined,
         title: row.displayTitle || t("wb.untitled"),
-        tabIndex: 0,
         onClick: () => {
           openSession(row.id);
           setView("chat");
         },
-        onKeyDown: (e) =>
-          e.key === "Enter" && (openSession(row.id), setView("chat")),
       },
-      h("span", { className: "linggo-session-title" }, row.displayTitle || t("wb.untitled")),
+      h("span", { className: "linggo-row-title" }, row.displayTitle || t("wb.untitled")),
       h(
         "span",
-        { className: "linggo-session-meta" },
-        row.running ? h("span", { className: "running" }, "●") : sessionTime(row),
+        { className: "linggo-row-meta" },
+        row.running && h("span", { className: "running", "aria-label": t("job.running") }, "●"),
+        sessionTime(row),
+      ),
       ),
     ),
   );
@@ -420,9 +439,10 @@ function Workbench({
               "button",
               {
                 title: t("ui.addProject"),
+                "aria-label": t("ui.addProject"),
                 onClick: () => setProjectDialog(true),
               },
-              "+",
+              h(Icon, { name: "plus", size: 16 }),
             ),
           ),
           h(
@@ -453,7 +473,8 @@ function Workbench({
                 badge: history.length ? String(history.length) : "",
                 icon: h(Icon, { name: "message", size: 16 }),
                 className: "linggo-session-section",
-                initial: true,
+                open: sessionsOpen,
+                onOpenChange: setSessionsOpen,
                 actions: h(
                   React.Fragment,
                   null,
@@ -462,7 +483,15 @@ function Workbench({
                     {
                       title: t("ui.searchSessions"),
                       "aria-label": t("ui.searchSessions"),
-                      onClick: () => setSearchOpen((v) => !v),
+                      onClick: () => {
+                        if (!sessionsOpen || !searchOpen) {
+                          setSessionsOpen(true);
+                          setSearchOpen(true);
+                        } else {
+                          setSearchOpen(false);
+                          setSessionSearch("");
+                        }
+                      },
                     },
                     h(Icon, { name: "search", size: 15 }),
                   ),
@@ -472,7 +501,12 @@ function Workbench({
                       title: t("wb.newSession"),
                       "aria-label": t("wb.newSession"),
                       disabled: busy || !known,
-                      onClick: () => run(() => newPresentation(project)),
+                      onClick: () => run(async () => {
+                        await newPresentation(project);
+                        setSessionSearch("");
+                        setSearchOpen(false);
+                        setSessionsOpen(true);
+                      }),
                     },
                     h(Icon, { name: "plus", size: 16 }),
                   ),
@@ -481,6 +515,7 @@ function Workbench({
               searchOpen &&
                 h("input", {
                   className: "linggo-inline-search",
+                  ref: searchInput,
                   "aria-label": t("ui.searchSessions"),
                   placeholder: t("ui.searchSessions"),
                   value: sessionSearch,
@@ -488,10 +523,16 @@ function Workbench({
                 }),
               h(
                 "ul",
-                { className: "linggo-list", "aria-label": t("wb.sessions") },
+                { className: "linggo-sidebar-list", "aria-label": t("wb.sessions") },
                 ...sessionRows,
               ),
-              !filteredHistory.length && h("small", null, t("wb.noSessions")),
+              visibleHistory.hiddenCount > 0 && h("button", {
+                type: "button",
+                className: "linggo-show-more",
+                onClick: () => setSessionLimit((n) => n + SIDEBAR_PAGE_SIZE),
+              }, t("ui.showMore", { count: String(visibleHistory.hiddenCount) })),
+              !filteredHistory.length && h("small", null,
+                t(sessionSearch ? "ui.noSearchResults" : "wb.noSessions")),
             ),
             known &&
               h(DataSummary, {

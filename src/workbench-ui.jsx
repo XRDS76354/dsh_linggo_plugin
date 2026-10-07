@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   computeLayout,
   DEFAULT_LAYOUT,
@@ -157,6 +157,23 @@ export function Splitter({ side, layout, t }) {
   );
 }
 
+/** Plugin-owned preferences; never write the host's sidebar/layout keys. */
+export function useSectionState(id, defaultOpen = false) {
+  const key = "linggo.section." + id;
+  const [open, setOpen] = useState(() => {
+    const stored = readPreference(localStorage, key, defaultOpen);
+    return typeof stored === "boolean" ? stored : defaultOpen;
+  });
+  const value = useRef(open);
+  const update = useCallback((next) => {
+    const resolved = typeof next === "function" ? next(value.current) : next;
+    value.current = resolved === true;
+    writePreference(localStorage, key, value.current);
+    setOpen(value.current);
+  }, [key]);
+  return [open, update];
+}
+
 export function SideSection({
   id,
   title,
@@ -164,16 +181,19 @@ export function SideSection({
   icon,
   actions,
   children,
-  initial = false,
+  open,
+  onOpenChange,
+  collapsedSummary,
   className = "",
 }) {
-  const key = "linggo.section." + id;
-  const [open, setOpen] = useState(
-    () => readPreference(localStorage, key, initial) === true,
-  );
+  const bodyId = `linggo-section-${id}-body`;
   return h(
     "section",
-    { className: `linggo-section ${open ? "open" : "closed"} ${className}` },
+    {
+      className: `linggo-section ${open ? "open" : "closed"} ${className}`,
+      "data-section": id,
+      "aria-label": title,
+    },
     h(
       "div",
       { className: "linggo-section-header" },
@@ -181,17 +201,20 @@ export function SideSection({
         "button",
         {
           className: "linggo-section-heading",
+          type: "button",
+          "aria-label": title,
           "aria-expanded": open,
-          onClick: () => {
-            setOpen(!open);
-            writePreference(localStorage, key, !open);
-          },
+          "aria-controls": bodyId,
+          onClick: () => onOpenChange(!open),
         },
-        h("span", {
-          className: "linggo-chevron",
-          "aria-hidden": "true",
-        }, open ? "▾" : "▸"),
-        icon || null,
+        h("span", { className: "linggo-section-slot", "aria-hidden": "true" },
+          h("span", { className: "linggo-section-symbol" }, icon),
+          h("svg", {
+            className: "linggo-chevron",
+            width: 16, height: 16, viewBox: "0 0 24 24",
+            fill: "none", stroke: "currentColor", strokeWidth: 2,
+          }, h("path", { d: "m9 5 7 7-7 7" })),
+        ),
         h("span", { className: "linggo-section-title" }, title),
         badge ? h("span", { className: "linggo-count" }, badge) : null,
       ),
@@ -199,7 +222,10 @@ export function SideSection({
         ? h("div", { className: "linggo-section-actions" }, actions)
         : null,
     ),
-    open && h("div", { className: "linggo-section-body" }, children),
+    !open && collapsedSummary,
+    h("div", { id: bodyId, className: "linggo-section-body", hidden: !open },
+      open ? children : null,
+    ),
   );
 }
 
@@ -248,41 +274,42 @@ export const workbenchStyle = `
 .linggo-project-picker{padding:0 16px 12px;display:flex;align-items:center;gap:6px;}
 .linggo-project-picker select{min-width:0;margin:0;height:32px;padding:4px 10px;border-radius:8px;}
 .linggo-project-picker small{font-size:12px;color:var(--c-cap);}
-.linggo-sidebar-body{flex:1;min-height:0;overflow:auto;padding:0 10px 12px;scrollbar-gutter:stable;display:flex;flex-direction:column;gap:2px;}
-.linggo-section{border-top:1px solid var(--c-line);}
-.linggo-section:first-child{border-top:0;}
-.linggo-section-header{display:flex;align-items:center;gap:2px;height:36px;padding:0 2px;margin-bottom:2px;border-radius:8px;}
-.linggo-section-header:hover{background:var(--c-hover);}
-.linggo-section-heading{flex:1;min-width:0;display:flex;align-items:center;gap:6px;height:36px;border:0!important;border-radius:0!important;background:transparent!important;padding:0 4px!important;margin:0!important;justify-content:flex-start!important;font-weight:500!important;font-size:14px!important;color:var(--c-text)!important;}
-.linggo-section-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:500;}
-.linggo-chevron{flex:none;width:14px;font-size:10px;color:var(--c-cap);opacity:0;transition:opacity .12s ease;}
-.linggo-section-header:hover .linggo-chevron,.linggo-section-heading:focus-visible .linggo-chevron{opacity:1;}
-.linggo-section.open .linggo-chevron{opacity:.7;}
-.linggo-icon{flex:none;opacity:.85;}
-.linggo-section-actions{flex:none;display:flex;align-items:center;gap:2px;}
-.linggo-section-actions button{width:28px;height:28px;padding:0!important;margin:0!important;justify-content:center;border:0!important;background:transparent!important;color:var(--c-sub);border-radius:6px!important;}
-.linggo-section-actions button:hover{background:var(--c-hover);color:var(--c-text);}
-.linggo-section-heading:hover{background:transparent!important;color:var(--c-text)!important;}
-.linggo-section-body{padding:0 4px 14px;display:grid;gap:2px;}
-.linggo-count{font-size:11px;color:var(--c-cap);font-weight:400;background:transparent;border:0;padding:0 2px;line-height:1;flex:none;}
-.linggo-chevron{display:inline-block;width:18px;color:var(--c-cap);font-size:11px;}
-.linggo-section-heading>span:first-child{display:inline-flex;align-items:center;gap:4px;min-width:0;}
-
-.linggo-session-section .linggo-section-body>input{height:32px;border-radius:8px;margin:0;}
-.linggo-session-section .linggo-list{max-height:none;overflow:visible;display:grid;gap:2px;}
-.linggo-session-section .linggo-list li{display:flex;align-items:center;gap:8px;padding:0 8px;height:32px;border-radius:8px;}
-.linggo-session-section .linggo-list li[aria-current="true"]{background:color-mix(in srgb, var(--c-accent) 10%, transparent);border-left-color:var(--c-accent);font-weight:500;}
-.linggo-session-section .linggo-list li:hover{background:var(--c-hover);}
-.linggo-session-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px!important;font-weight:400;color:var(--c-text)!important;line-height:20px;}
-.linggo-session-meta{flex:none;font-size:11px!important;color:var(--c-cap)!important;line-height:1;}
-.linggo-session-meta .running{color:var(--c-accent);}
-.linggo-session-date{padding:10px 8px 4px;color:var(--c-cap);font-size:11px;font-weight:500;list-style:none;}
-.linggo-current-version{background:transparent;border:0;padding:6px 8px;border-radius:8px;margin:0;display:grid;gap:3px;}
-.linggo-current-version strong{font-size:13px;font-weight:600;}
-.linggo-current-version small{font-size:11px;color:var(--c-cap);}
-.linggo-entities{display:grid;gap:3px;margin:6px 0 0;}
-.linggo-entities>div{display:flex;justify-content:space-between;gap:8px;color:var(--c-sub);font-size:11px;}
-.linggo-entities>div span:last-child{color:var(--c-text);font-variant-numeric:tabular-nums;}
+/* DSH WorkspaceBrowser .sectionHeader/.iconButton: 36px header, 28px actions.
+   LingGo deliberately gives all section titles primary ink and 14px/500. */
+.linggo-sidebar-body{flex:1;min-height:0;overflow:auto;padding:0 10px 12px;scrollbar-gutter:stable;display:flex;flex-direction:column;gap:12px;}
+.linggo-section{min-width:0;flex:none;}
+.linggo-section-header{display:flex;align-items:center;gap:4px;height:36px;padding:0 2px;margin-bottom:4px;border-radius:8px;}
+.linggo-root .linggo-section-heading{flex:1;min-width:0;display:flex;align-items:center;gap:6px;height:36px;border:0;border-radius:8px;background:transparent;padding:0 4px;margin:0;justify-content:flex-start;font-size:14px;font-weight:500;color:var(--c-text);}
+.linggo-section-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:500;line-height:20px;}
+/* DSH Rows: folder by default, expand arrow on row hover; share one slot. */
+.linggo-section-slot{position:relative;flex:none;display:inline-flex;align-items:center;justify-content:center;width:16px;height:20px;color:var(--c-cap);}
+.linggo-section-symbol{display:inline-flex;}
+.linggo-chevron{position:absolute;inset:2px 0;opacity:0;transition:transform .12s ease;}
+.linggo-section.open .linggo-chevron{transform:rotate(90deg);}
+.linggo-section-header:is(:hover,:focus-within) .linggo-chevron{opacity:1;}
+.linggo-section-header:is(:hover,:focus-within) .linggo-section-symbol{opacity:0;}
+.linggo-icon{flex:none;}
+.linggo-section-actions{flex:none;display:flex;align-items:center;gap:4px;}
+.linggo-root .linggo-section-actions button{width:28px;height:28px;padding:0;margin:0;justify-content:center;border:0;background:transparent;color:var(--c-sub);border-radius:6px;}
+.linggo-root .linggo-section-actions button:hover,.linggo-root .linggo-section-heading:hover{background:var(--c-hover);color:var(--c-text);}
+.linggo-section-body{padding:0 4px;display:grid;gap:2px;}
+.linggo-section-body[hidden]{display:none;}
+.linggo-count{font-size:11px;color:var(--c-cap);font-weight:400;line-height:16px;flex:none;white-space:nowrap;}
+.linggo-section-summary{display:block;min-width:0;margin:0;padding:2px 8px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:20px;color:var(--c-sub);}
+.linggo-section.closed>.linggo-section-summary{margin:0 4px;}
+.linggo-sidebar-list{list-style:none;margin:0;padding:0;min-width:0;}
+.linggo-sidebar-list>li{min-width:0;margin:0;padding:0;}
+/* DSH Rows .sessionRow/.title/.time: a single compact row and trailing metadata. */
+.linggo-root .linggo-sidebar-row{display:flex;align-items:center;gap:8px;width:100%;min-width:0;height:32px;margin:0;padding:0 8px;border:0;border-radius:8px;background:transparent;text-align:left;color:var(--c-text);}
+.linggo-root .linggo-sidebar-row:hover,.linggo-root .linggo-sidebar-row[aria-current="true"]{background:var(--c-hover);}
+.linggo-row-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:400;line-height:20px;color:var(--c-text);}
+.linggo-row-meta{flex:none;display:inline-flex;align-items:center;gap:4px;font-size:11px;line-height:16px;color:var(--c-cap);white-space:nowrap;font-variant-numeric:tabular-nums;}
+.linggo-row-meta .running{color:var(--c-accent);font-size:8px;}
+.linggo-root .linggo-show-more{display:flex;align-items:center;height:28px;margin:0;padding:0 8px;border:0;background:transparent;border-radius:6px;font-size:12px;color:var(--c-cap);text-align:left;justify-self:start;}
+.linggo-root .linggo-show-more:hover{background:transparent;color:var(--c-sub);}
+.linggo-root :is(.linggo-section-heading,.linggo-section-actions button,.linggo-sidebar-row,.linggo-show-more):focus-visible{outline:2px solid var(--dsw-focus-ring-color,var(--c-accent));outline-offset:-2px;}
+.linggo-session-section .linggo-section-body>input{height:32px;border-radius:8px;margin:0 0 4px;}
+@media(prefers-reduced-motion:reduce){.linggo-chevron{transition:none;}}
 .linggo-sidebar-footer{border-top:1px solid var(--c-line);padding:12px 14px;display:grid;gap:6px;background:var(--c-side);}
 .linggo-sidebar-footer button,.linggo-sidebar-footer a{justify-content:center;margin:0!important;height:34px;border-radius:10px;}
 .linggo-splitter{position:relative;touch-action:none;cursor:col-resize;z-index:20;width:6px;}
@@ -332,4 +359,3 @@ html[data-linggo-view="chat"] .linggo-workspace{display:none;}
 .linggo-session-section .linggo-list li{min-height:44px;}
 }
 `;
-
