@@ -8,6 +8,8 @@
 
 要求 Node.js 22.19+（在 Node 22.23.1 验证）、官方 DSH `0.2.0-rc.2` 或 `0.2.1-alpha.1`。无需修改 DSH 源码。
 
+GitHub 仓库随附 `lib/index.js` 和 `lib/client.js`，插件管理器安装时直接使用这些构建文件，不运行 `prepare` 或安装构建脚本。修改源码后须重新构建并一同提交 `lib/`；CI 在 Windows/Linux 上通过 `npm run check:build` 检查一致性。
+
 ```sh
 npm ci
 npm run build
@@ -93,22 +95,57 @@ dsh plugin --profile linggo remove dsh-linggo-plugin
 ## 打包
 
 ```sh
-npm run build
-npm run check:package
-npm pack
+npm run pack:release
 ```
 
-发行白名单仅包含构建文件、Python 数据模块与依赖清单、Python 初始化脚本、bundle 配置、Skill 文档、算法模板、README、许可证与兼容说明。`check:package` 会拒绝任何白名单外文件；当前发行包包含双版本兼容、工作台设置与验收说明，不含数据、日志、凭据或本机路径。源码安装使用仓库中的 lockfile。
+`pack:release` 依次构建、检查发行文件并生成 `.tgz`。也可单独运行 `npm run check:build` 检查构建文件是否与源码一致、`npm run check:package` 检查打包内容。后者可直接用 `node scripts/check-package.mjs` 运行，兼容 Windows 的 npm 命令包装器；不会执行打包生命周期脚本。
+
+发行白名单仅包含构建文件、Python 数据模块与依赖清单、Python 初始化脚本、bundle 配置、Skill 文档、算法模板、README、许可证与兼容说明。`check:package` 会拒绝任何白名单外文件，也会拒绝缺少 JS/Python 入口、bundle 配置、初始化脚本或 Skill 文档的包；当前发行包包含双版本兼容、工作台设置与验收说明，不含数据、日志、凭据或本机路径。源码安装使用仓库中的 lockfile。
 
 从发行包安装（不经源码目录）：
 
 ```sh
-dsh plugin --profile <profile> add ./dsh-linggo-plugin-0.1.1-alpha.1.tgz
+dsh plugin --profile <profile> add ./dsh-linggo-plugin-0.1.1-alpha.2.tgz
 export DSH_HOME=<该 profile 的 DSH_HOME>
 node <安装目录>/node_modules/dsh-linggo-plugin/scripts/setup-python.mjs
 ```
 
 `dsh plugin add` 需要 pnpm 在 PATH 上；没有 pnpm 时可先 `corepack enable pnpm`。Python 环境创建在 `$DSH_HOME/linggo/venv`，与插件目录分离，升级或重装插件不需要重建。
+
+### Windows PowerShell 安装与排查
+
+在 DSH 桌面版提供的终端使用与宿主配套的 `dsh`；系统全局安装的旧版 CLI 可能与桌面版不同。下列示例使用独立 `linggo-win` profile，首次创建时使用官方 Web 模板。
+
+```powershell
+dsh --profile linggo-win --from-default-profile web --help
+# GitHub 安装：修复提交发布后使用，仓库必须包含 lib/ 构建文件。
+dsh plugin --profile linggo-win add github:XRDS76354/dsh_linggo_plugin
+dsh --profile linggo-win --port 3180 --no-open
+```
+
+源码或尚未推送的本地修复可按以下步骤打包安装；路径带空格、中文或单引号时使用双引号。
+
+```powershell
+Set-Location "C:\Projects\dsh_linggo_plugin"
+npm ci
+npm run pack:release
+dsh plugin --profile linggo-win add "C:\Projects\dsh_linggo_plugin\dsh-linggo-plugin-0.1.1-alpha.2.tgz"
+# 源码目录也可安装：dsh plugin --profile linggo-win add "C:\Projects\dsh_linggo_plugin"
+dsh --profile linggo-win --port 3180 --no-open
+```
+
+Python 初始化单独进行。先用 `py --list-paths` 查找已安装的解释器，再确认该 `python.exe` 实际存在且版本为 3.10+；`PATH` 上的 Anaconda/Windows 应用别名可能指向其他版本。
+
+```powershell
+$env:DSH_HOME = "$env:USERPROFILE\.dsh"
+$pluginDir = "$env:DSH_HOME\profiles\linggo-win\node_modules\dsh-linggo-plugin"
+& "C:\path\to\python.exe" --version
+node "$pluginDir\scripts\setup-python.mjs" --python "C:\path\to\python.exe"
+```
+
+桌面 `desktop` profile 用其实际安装目录代替示例中的 `linggo-win`。若此前设置了自定义 `DSH_HOME`，使用启动日志中的实际目录；插件 Python venv 不安装到源码目录。启用插件本身不需要先安装 Python，数据导入和算法运行才需要。
+
+出现 `failed to import` 时先检查安装目录中的 `lib/index.js`、`lib/client.js` 是否存在，并核对宿主版本。数据处理的 JSON 协议问题属于另一阶段：非有限数值会转为 `null`，非法标准输出会明确报“数据进程协议错误”。自定义算法日志应写入 stderr，stdout 留给 worker 的 JSON 事件。
 
 ## 许可证与第三方
 
@@ -138,4 +175,4 @@ npm run test:compat -- /absolute/path/to/rc2-runtime /absolute/path/to/alpha1-ru
 1. ~~DSH 集成~~（已完成，桌面待验收）。
 2. ~~数据导入、数据版本、地图与质量检查~~（已完成，PostGIS 和百度真实底图待实机验收）。
 3. ~~DRT、常规公交配车/客流班次、实验场景、Python 算法接口和 Skills~~（已完成，见上）。
-4. ~~预构建发行包、隔离 Python 初始化、发行前审计与许可说明~~（已完成）；三平台安装验证仅覆盖 macOS，Windows/Linux 为待办。
+4. ~~预构建发行包、隔离 Python 初始化、发行前审计与许可说明~~（已完成）；Windows 安装修复与验证记录见[验收记录](docs/verification.md#windows-安装与数据通信修复)。Linux 实机和原生桌面窗口仍待验收。

@@ -49,7 +49,7 @@ python scripts/browser-compat.py /absolute/path/to/host.log /absolute/path/to/te
 
 ## 限制
 
-- 原生桌面窗口、操作系统协议唤起、Windows/Linux 尚未独立验收。当前桌面 `rc.2` 的安装版本限制已修正，但不能把 Web 验收写成原生桌面验收。
+- 原生桌面窗口、操作系统协议唤起尚未独立验收；不能把 Web 验收写成原生桌面验收。Windows 后续安装、启动与数据通信验收见[2026-10-09 修复记录](verification.md#windows-安装与数据通信修复)，Linux 实机仍待验收。
 - 未重新验证外部模型供应商。数据与算法审查中的既有问题仍需单独修复。
 - 三栏 CSS 依赖官方框架的 DOM 锚点，每个新增支持版本都需浏览器复核。
 - 不使用版本豁免、不移除 Host 权限限制、不修改用户模型及凭据配置。

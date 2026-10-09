@@ -2,12 +2,13 @@
 import json
 import sys
 import traceback
+from . import jsonio
 
 PREVIEW_ROWS = 500
 
 
 def emit(obj):
-    sys.stdout.write(json.dumps(obj, ensure_ascii=False, default=str) + "\n")
+    sys.stdout.write(jsonio.dumps(obj, ensure_ascii=False) + "\n")
     sys.stdout.flush()
 
 

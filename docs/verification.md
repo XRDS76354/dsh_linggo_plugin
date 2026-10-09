@@ -58,9 +58,9 @@
 - 当前会话选择保存在同源 localStorage `dsh.sessions.current`，展示页和开发页共享；开发页刷新后可能恢复到展示会话。展示会话中的工具限制仍由 Host 执行。
 - 展示会话需要工作区才能输入，所以每个项目有一个"LingGo · 项目 · 展示"工作区，会出现在开发页工作区列表中。
 - 空白展示会话的工作区选择器仍可切换到其他工作区；切换后会话不再属于展示目录，工作台显示遮罩，不会放开工具。
-- 桌面应用未验证：本机安装的桌面版为 0.2.0-rc.2，不是兼容基线。
+- 原生桌面窗口和协议唤起未独立验收；本次 Windows 使用已支持的官方 `0.2.0-rc.2` Web 宿主验证插件安装、启用和页面。
 - 未单独验证"停止生成"按钮（原生 DSH 功能，插件未改动）。
-- Windows/Linux 未验证。代码中已按平台分支处理解释器名（`python3`/`python`）、venv 路径（`bin/`、`Scripts/`）与 `windowsHide`，文件 I/O 统一 UTF-8，路径均用 `join`/`os.path.join`，`0o600` 在 Windows 上为无害空操作；但没有任何实机或 CI 记录，属未验证项。
+- Windows 安装与数据通信已补充实机记录，见下文；Linux 实机仍未验证，新增 CI 配置尚不代表已通过 CI。原生桌面窗口和协议唤起也不在本次 Windows Web 验收范围内。
 - 发行包安装需要 pnpm 在 PATH 上（或用 corepack 提供），否则 `dsh plugin add` 失败；该提示来自 DSH 而非插件。
 - 结果目录的发布用同项目内的 `rename`；若把 `$DSH_HOME/linggo` 的 results 目录单独挂到别的文件系统上会失效（默认布局不受影响）。
 - 高德底图未在浏览器验证（本机无 Key）；无 Key 或加载失败时回退内置画布，已验证回退路径。
@@ -73,3 +73,48 @@
 - 智能体提交的运行建议只存在内存中，Host 重启后丢失；结果本身已落盘。
 - 高德底图上的结果回放图层未实机验证（本机无 Key）；内置画布的 DRT 回放已验证，配车回放绘制逻辑与 DRT 共用同一时间轴。
 - 客流班次生成未在本机真实数据上跑通（临港项目无时刻表与分时段客流），只覆盖程序生成的虚构夹具；真实数据下的班次与缺口报告待有数据时复核。
+
+## Windows 安装与数据通信修复
+
+日期：2026-10-09。插件：`0.1.1-alpha.2`。环境：Windows、Node.js 24.21.0、Python 3.12.14 隔离 venv、pandas 3.0.6、Microsoft Edge headless。安装测试分别使用 pnpm 11.25.0 和桌面版内置 pnpm 11.7.0，两种安装来源均通过。官方 DSH `0.2.0-rc.2` 与 `0.2.1-alpha.1` 分别安装到项目内的隔离运行目录；没有修改正在使用的桌面 profile 或读取其模型凭据。
+
+### 故障与修复
+
+- 原安装日志记录 GitHub 依赖安装成功，但仓库 `.gitignore` 排除了 `lib/`，没有安装构建脚本。修复前 `npm pack --dry-run --json --ignore-scripts` 的 32 个文件中不含两个 JS 入口；这足以导致 Host 导入失败。修复后构建文件随仓库交付，新增 Windows/Linux CI 的源码一致性检查；不引入 `prepare`、`prepack` 或安装构建授权。
+- Windows 下原包检查脚本 `execFileSync("npm", …)` 报 `ENOENT`。现在优先通过 Node 执行 npm CLI，独立运行时兼容 Windows 命令包装器；检查打包不执行生命周期脚本，同时拒绝缺少必要运行文件的包。
+- Python 原输出可包含裸 `NaN`。新增统一严格 JSON 边界：嵌套数值 NaN/正负无穷转换为 null，字符串 `"NaN"` 保留，布尔值和正常数值保持语义。通信、地图、manifest 与算法结果均采用严格序列化；Node 对非法 JSON 明确报告协议错误，不输出原始数据载荷。
+
+### 已通过的验证
+
+| 检查 | 结果 |
+|---|---|
+| Node 回归 | 36 项通过、0 跳过；显式设置 `LINGGO_TEST_PYTHON` 与 `LINGGO_REQUIRE_PYTHON=1` |
+| Python 回归 | 35 项通过 |
+| 构建一致性 | `npm run check:build` 通过，两个入口与源码一致 |
+| Windows 包检查 | 直接运行及 npm CLI 路径通过；空格、中文、单引号路径通过；缺失 JS/Python 入口、JSON 模块、bundle 或白名单外文件被拒 |
+| 两版 DSH API | `test:compat` 的官方安装兼容检查、真实工具权限守卫均通过 |
+| 官方 rc.2 的 `.tgz` 安装 | 安装后必要文件齐全、bundle 自动登记、Host 成功启用 |
+| 官方 rc.2 的 Git 源安装 | 当前改动复制到独立本地 Git 仓库，按 Git URL 安装通过；依赖仅新增插件包，无安装构建脚本 |
+| 两种安装后的 Edge 页面 | 认证进入工作台、Python 依赖诊断、无 shapes/完整 shapes/部分缺失 shapes 的 GTFS 检查→预览→确认→发布→地图读取通过；每例 2 条线路、2 个站点，几何数量分别为 0/2/1；零未捕获异常 |
+| worker 异常路径 | 真实 Python→Node 的嵌套非有限数值转换及结果文件 JSON 解析通过；非法标准输出明确拒绝，不泄露测试载荷 |
+| 导入原子性 | 预览后损坏 GTFS 源文件导致导入失败，无发布版本、无 staging 残留 |
+
+实机安装测试使用含空格、中文和单引号的独立 `DSH_HOME`，只生成虚构公交数据。浏览器验收为隔离宿主设置已完成的初始向导状态，没有调用外部模型。安装日志与截图保留在项目 `.local/` 验证目录，不进入 Git 仓库或发行包。
+
+### 复现入口与边界
+
+```powershell
+npm ci
+npm run check:build
+npm run check:package
+npm run pack:release
+$env:LINGGO_TEST_PYTHON = "C:\test-home\linggo\venv\Scripts\python.exe"
+$env:LINGGO_REQUIRE_PYTHON = "1"
+npm test
+$env:PYTHONPATH = "$PWD\python"
+$env:PYTHONUTF8 = "1"
+& $env:LINGGO_TEST_PYTHON -m unittest discover -s python/tests
+npm run test:compat -- C:\isolated-rc2-runtime C:\isolated-alpha1-runtime
+```
+
+安装步骤见 README 的 Windows PowerShell 部分。Git 源测试验证的是未推送修复的本地 Git 快照；远程 GitHub 安装必须等这些改动（包括 `lib/`）提交并推送后才能获得修复。此次不发布远程版本、不修改用户桌面 profile，不把原生窗口、外部地图供应商、真实运营数据或 Linux 运行写成已验收。

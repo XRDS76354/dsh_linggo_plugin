@@ -1,6 +1,6 @@
 {
   "name": "dsh-linggo-plugin",
-  "version": "0.1.1-alpha.1",
+  "version": "0.1.1-alpha.2",
   "description": "LingGo transit workbench for DeepSeek Harness",
   "type": "module",
   "license": "MIT",
@@ -42,8 +42,10 @@
   ],
   "scripts": {
     "build": "node scripts/build.mjs",
+    "check:build": "node scripts/build.mjs --check",
     "test": "node --test tests/*.test.mjs",
     "check:package": "node scripts/check-package.mjs",
+    "pack:release": "node scripts/pack-release.mjs",
     "test:python": "node scripts/setup-python.mjs --run-tests",
     "setup:python": "node scripts/setup-python.mjs",
     "test:compat": "node scripts/test-compat.mjs"

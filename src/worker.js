@@ -59,20 +59,27 @@ export function runWorker({ python, request, signal, onProgress, timeoutMs = 30 
       finish(reject, error.code === "ENOENT" ? Error(`找不到 Python：${python}。请先初始化插件 Python 环境。`) : error),
     );
     child.stdout.setEncoding("utf8");
+    const receive = (line) => {
+      if (settled || !line.trim()) return;
+      let event;
+      try {
+        event = JSON.parse(line);
+        if (!event || typeof event !== "object" || Array.isArray(event)) throw Error("Invalid event");
+      } catch {
+        kill();
+        finish(reject, Error("数据进程协议错误：输出不是合法 JSON 事件。请检查 Python 数据模块或自定义算法的标准输出。"));
+        return;
+      }
+      if (event.event === "progress") onProgress?.(event.value, event.message);
+      else if (event.event === "result") result = event;
+    };
     child.stdout.on("data", (chunk) => {
       buffer += chunk;
       let i;
       while ((i = buffer.indexOf("\n")) >= 0) {
         const line = buffer.slice(0, i);
         buffer = buffer.slice(i + 1);
-        let event;
-        try {
-          event = JSON.parse(line);
-        } catch {
-          continue;
-        }
-        if (event.event === "progress") onProgress?.(event.value, event.message);
-        else if (event.event === "result") result = event;
+        receive(line);
       }
     });
     child.stderr.setEncoding("utf8");
@@ -80,11 +87,15 @@ export function runWorker({ python, request, signal, onProgress, timeoutMs = 30 
       stderr = (stderr + chunk).slice(-4000);
     });
     child.on("close", (code) => {
+      receive(buffer);
       if (result?.ok) return finish(resolve, result.value);
       if (result) return finish(reject, Error(result.error));
       const missing = /No module named '?([\w.]+)/.exec(stderr);
       if (missing) return finish(reject, Error(`Python 缺少模块 ${missing[1]}。请先初始化插件 Python 环境。`));
       finish(reject, Error(`数据进程异常退出（${code}）：${stderr.trim().split("\n").at(-1) ?? ""}`));
+    });
+    child.stdin.on("error", (error) => {
+      if (error.code !== "EPIPE") finish(reject, error);
     });
     child.stdin.end(JSON.stringify(request));
   });

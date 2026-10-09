@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 import pandas as pd
 
-from . import gtfs
+from . import gtfs, jsonio
 from .mapping import Mapper
 from .schema import ENTITIES, NEEDS
 from .geo import core
@@ -137,9 +137,9 @@ def build(req, progress):
     if m["outliers"]:
         warnings.append(f"{len(m['outliers'])} 个站点远离主要范围（如 {', '.join(m['outliers'][:3])}），可能是坐标错误、坐标系选错或混入异地数据")
     with open(os.path.join(staging, "map.json"), "w", encoding="utf-8") as f:
-        json.dump(m, f, ensure_ascii=False, separators=(",", ":"))
+        jsonio.dump(m, f, ensure_ascii=False, separators=(",", ":"))
     with open(os.path.join(staging, "manifest.json"), "w", encoding="utf-8") as f:
-        json.dump(result, f, ensure_ascii=False, indent=1)
+        jsonio.dump(result, f, ensure_ascii=False, indent=1)
     return {"entities": entities, "bbox": m["bbox"], "report": result["report"], "missing": missing(entities)}
 
 

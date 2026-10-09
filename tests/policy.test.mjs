@@ -27,7 +27,7 @@ test("symlinked and case-variant paths resolve to the presentation scope", async
   t.after(() => rm(base, { recursive: true, force: true }));
   const real = join(base, "linggo", "projects", "p-2", "presentation");
   await mkdir(real, { recursive: true });
-  await symlink(real, join(base, "alias"));
+  await symlink(real, join(base, "alias"), process.platform === "win32" ? "junction" : "dir");
   assert.deepEqual(presentationOf(join(base, "linggo"), join(base, "alias")), { projectId: "p-2" });
   if (process.platform === "darwin" || process.platform === "win32")
     assert.ok(presentationOf(join(base, "linggo"), real.replace("presentation", "Presentation")));

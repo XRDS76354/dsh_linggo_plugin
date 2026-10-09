@@ -8,13 +8,12 @@ and validation does not make user code safe: it runs with the user's permissions
 """
 import hashlib
 import importlib.util
-import json
 import os
 import sys
 
 import pandas as pd
 
-from . import drt, fleet, tripgen
+from . import drt, fleet, tripgen, jsonio
 from .geo import km, travel_s
 from .schema import ENTITIES
 
@@ -164,7 +163,7 @@ def run(req, progress):
     result["params"] = params
     os.makedirs(req["resultDir"], exist_ok=True)
     with open(os.path.join(req["resultDir"], "result.json"), "w", encoding="utf-8") as f:
-        json.dump(result, f, ensure_ascii=False, default=str)
+        jsonio.dump(result, f, ensure_ascii=False)
     return {
         "kind": meta["kind"], "summary": result["summary"], "validation": {k: v for k, v in result["validation"].items() if k != "violations"},
         "synthetic": bool(result.get("synthetic")), "params": params,

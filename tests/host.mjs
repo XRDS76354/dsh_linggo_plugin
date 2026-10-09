@@ -3,13 +3,15 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-// The data path needs a Python with the worker requirements: LINGGO_TEST_PYTHON or python3.
-export const python = process.env.LINGGO_TEST_PYTHON || "python3";
+// An explicit interpreter wins; use the platform's normal command otherwise.
+export const python = process.env.LINGGO_TEST_PYTHON || (process.platform === "win32" ? "python" : "python3");
 export let ready = false;
 try {
-  execFileSync(python, ["-c", "import pandas, openpyxl, shapefile, pyproj"], { stdio: "ignore" });
+  execFileSync(python, ["-c", "import sys; assert sys.version_info >= (3, 10); import pandas, openpyxl, shapefile, pyproj"], { stdio: "ignore", windowsHide: true });
   ready = true;
 } catch {}
+if (!ready && (process.env.LINGGO_TEST_PYTHON || process.env.LINGGO_REQUIRE_PYTHON))
+  throw Error(`Required Python test environment unavailable: ${python}`);
 
 export async function host() {
   const home = await mkdtemp(join(tmpdir(), "linggo-data-"));
