@@ -4,8 +4,16 @@ import { createHash } from "node:crypto";
 import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runWorker } from "../src/worker.js";
+import { runWorker, setupPythonEnvironment } from "../src/worker.js";
 import { python, ready } from "./host.mjs";
+
+test("Python setup never starts when already cancelled and missing interpreter gives installation guidance", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "linggo setup "));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const controller = new AbortController(); controller.abort(Error("cancelled before setup"));
+  await assert.rejects(setupPythonEnvironment({ root, signal: controller.signal }), /cancelled before setup/);
+  await assert.rejects(setupPythonEnvironment({ root, python: join(root, "not-installed-python") }), /安装 Python 3.10/);
+});
 
 async function algorithmFixture(t, body) {
   const root = await mkdtemp(join(tmpdir(), "linggo worker 中文 '"));

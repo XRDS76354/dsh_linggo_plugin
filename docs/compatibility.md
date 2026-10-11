@@ -53,3 +53,25 @@ python scripts/browser-compat.py /absolute/path/to/host.log /absolute/path/to/te
 - 未重新验证外部模型供应商。数据与算法审查中的既有问题仍需单独修复。
 - 三栏 CSS 依赖官方框架的 DOM 锚点，每个新增支持版本都需浏览器复核。
 - 不使用版本豁免、不移除 Host 权限限制、不修改用户模型及凭据配置。
+
+
+## 2026-10-11 先前最小合成演示回归（已由地图版替代）
+
+在两版官方 DSH 的独立 home 从实际 tarball 安装。无模型凭据、无地图密钥、配置不可用 Python 时，两条原生演示会话可见，开场明确标识插件内置说明；OD/客流、四份真实预设、A/B 路网回放、配车、四种视口与草稿行为通过。安装只新增插件包，不另装宿主 API。
+
+原生消息 producer 保留 `linggo-demo` 来源；两版默认隐藏 ordinary Context，插件以公共 `uiConversation.events` 和 `conversation.chat.node` 注册自己的介绍节点。未覆盖原生聊天、输入、模型或工具渲染器。新增可选 peer `@deepseek-ai/dsh-llm` 使用 Host 已有的消息构造函数。
+
+两版真实 ToolRuntime 守卫与安装兼容通过；使用本地确定性 SSE provider 的流式、工具记录、取消、双页交接和既有草稿保留通过。左栏与 600 条线路的原生布局/地图回归通过。alpha.1 上实测显式环境初始化回到参数预览，确认重跑与随包结果一致。此次不扩大支持版本；原生桌面窗口及 Windows/Linux 实机仍未重新验收。
+
+详情与合成数据/内核基线见 [演示规格](compose/spec/demo-minimal-drt-v2.md)。截图和日志在 `artifacts/demo-tests/`，不随包分发。
+
+
+## 2026-10-11 真实线网地图演示回归
+
+本轮在两版独立 home 从 tarball 安装真实线网地图版。冷安装无 Python、模型凭据和地图密钥：地图默认八条真实线路，客流/OD/计划车辆、匿名既有 DRT 与模拟 A/B、五份结果、车辆点击/详情/事件、四种视口通过，没有自动模型请求或依赖下载。
+
+两版官方 Web 的原生流式回复、工具记录、取消、草稿保留、双页交接及同浏览器重连通过。600 线路旧地图（含关闭旧 DRT 后再次选线）和左栏回归通过。alpha.1 的显式 Python 初始化回到预览、用户确认后重跑一致通过。安装兼容及真实 ToolRuntime 守卫通过；不扩大支持版本。
+
+JS 50 项、Python 44 项无跳过通过，原始/适配 A/B 内核在实际演示矩阵上结果一致；四份模拟重跑及 META 一致。演示资产 450,257 字节，发行包文件/匿名字段白名单通过。
+
+本轮截图和日志位于 `artifacts/map-demo/`，具体范围及未验收项目见 [地图演示规格](compose/spec/demo-minimal-drt-v2.md#本轮验证记录)。未重新验收真实地图密钥服务、原生桌面窗口、Windows/Linux 实机；未提交、推送或发布。

@@ -1,15 +1,32 @@
 import { createHmac, randomBytes } from "node:crypto";
-import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  readdir,
+  readFile,
+  rename,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { defineTool } from "@deepseek-ai/dsh-tools";
 import { Store } from "./store.js";
 import { Jobs } from "./jobs.js";
-import { resolvePython, runWorker } from "./worker.js";
+import { resolvePython, runWorker, setupPythonEnvironment } from "./worker.js";
+import {
+  demoAssets,
+  demoInfo,
+  ensureDemoAssets,
+  ensureDemoSessions,
+  queryDemo,
+} from "./demo.js";
 import { PRESENTATION_TOOLS, presentationOf, toolDenial } from "./policy.js";
 import { createAnalysis, removeResultLeftovers } from "./analysis.js";
 import { registerSkills } from "./skills.js";
-import { requireHostCapabilities, authenticatedWorkbenchUrl } from "./compat-host.js";
+import {
+  requireHostCapabilities,
+  authenticatedWorkbenchUrl,
+} from "./compat-host.js";
 
 export const name = "linggo";
 export const inject = {
@@ -18,21 +35,29 @@ export const inject = {
   webServer: { required: false },
   agents: { required: false },
   skills: { required: false },
+  sessions: { required: false },
+  sessionController: { required: false },
+  workspaceController: { required: false },
 };
 
 const PRESENTATION_PROMPT = `You are the LingGo transit workbench assistant in a presentation session.
 Only use LingGo tools: linggo_status for readiness, linggo_query to read the project's published data,
-linggo_map to show routes, stops or an algorithm result on the map, linggo_algorithms to list scheduling algorithms,
+linggo_map to show routes, stops, OD flows or an algorithm result on the map, linggo_algorithms to list scheduling algorithms,
 linggo_propose_run to propose a run (the user previews and confirms it in the 分析 tab; you cannot start runs),
 linggo_results to read finished results, and skill for LingGo how-to guides.
 You cannot run shell commands, edit code or import data here.
 Results computed from synthetic (实验生成) demand must always be called experimental, never observed demand.
+Bundled map demo contains real public routes, simulated operations and an anonymous recorded calculation clip. Always report provenance and statisticsScope; do not call simulated ridership observed or recorded clip KPIs full-scenario service rates.
 Data is imported by the user through the import wizard on the left panel, which previews and confirms every mapping.
 When the user asks for code changes or new features, suggest the "交接给开发工作台" (development handoff) action instead.
 Never invent transit data: answer only from tool results, and when data is missing, say which data the project needs.`;
 
 export const OPERATIONS = [
   "launch",
+  "demoInfo",
+  "ensureDemo",
+  "recreateDemo",
+  "setupPython",
   "state",
   "createProject",
   "directory",
@@ -62,14 +87,62 @@ export const OPERATIONS = [
   "dismissProposal",
 ];
 
-const NEED_LABELS = { routes: "线路与方向", stops: "站点与站序", timetable: "时刻表（计划班次）", ridership: "分时段客流或 OD" };
-const ENTITY_NAMES = ["stops", "routes", "route_stops", "trips", "ridership", "od", "demand", "gps", "vehicles", "depots"];
-const FILTER_COLUMNS = ["route_id", "route_name", "direction", "stop_id", "stop_name", "trip_id", "vehicle_id", "depot_id", "service_id", "time_bin", "date"];
-const MAP_ACTIONS = ["show_route", "show_stop", "show_run", "show_all", "clear"];
+const NEED_LABELS = {
+  routes: "线路与方向",
+  stops: "站点与站序",
+  timetable: "时刻表（计划班次）",
+  ridership: "分时段客流或 OD",
+};
+const ENTITY_NAMES = [
+  "stops",
+  "routes",
+  "route_stops",
+  "trips",
+  "ridership",
+  "od",
+  "demand",
+  "gps",
+  "vehicles",
+  "depots",
+  "network_nodes",
+  "network_edges",
+];
+const FILTER_COLUMNS = [
+  "route_id",
+  "route_name",
+  "direction",
+  "stop_id",
+  "stop_name",
+  "trip_id",
+  "vehicle_id",
+  "depot_id",
+  "service_id",
+  "time_bin",
+  "day_type",
+  "date",
+  "origin_stop_id",
+  "dest_stop_id",
+  "request_id",
+  "node_id",
+  "edge_id",
+  "from_node_id",
+  "to_node_id",
+];
+const MAP_ACTIONS = [
+  "show_route",
+  "show_stop",
+  "show_run",
+  "show_all",
+  "clear",
+  "show_od",
+  "focus_vehicle",
+  "seek_time",
+];
 const ACTION_HISTORY = 200;
 
 function plainObject(value, label) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw Error(`Invalid ${label}`);
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw Error(`Invalid ${label}`);
   return value;
 }
 
@@ -77,10 +150,26 @@ function plainObject(value, label) {
 function cleanSource(input) {
   const source = plainObject(input, "source");
   if (source.type === "postgis") {
-    if (typeof source.dsn !== "string" || !source.dsn.trim() || source.dsn.length > 2000) throw Error("请提供 PostgreSQL 连接串");
-    return { type: "postgis", dsn: source.dsn, ...(typeof source.table === "string" && source.table ? { table: source.table } : {}) };
+    if (
+      typeof source.dsn !== "string" ||
+      !source.dsn.trim() ||
+      source.dsn.length > 2000
+    )
+      throw Error("请提供 PostgreSQL 连接串");
+    return {
+      type: "postgis",
+      dsn: source.dsn,
+      ...(typeof source.table === "string" && source.table
+        ? { table: source.table }
+        : {}),
+    };
   }
-  if (typeof source.path !== "string" || !source.path.trim() || source.path.length > 4096) throw Error("请提供本机文件路径");
+  if (
+    typeof source.path !== "string" ||
+    !source.path.trim() ||
+    source.path.length > 4096
+  )
+    throw Error("请提供本机文件路径");
   return { type: "file", path: source.path.trim() };
 }
 
@@ -90,10 +179,14 @@ function cleanMapping(input) {
   const fields = {};
   for (const [k, v] of Object.entries(m.fields ?? {})) {
     if (!v || typeof v.column !== "string" || !v.column) continue;
-    fields[k] = { column: v.column, transform: typeof v.transform === "string" ? v.transform : "" };
+    fields[k] = {
+      column: v.column,
+      transform: typeof v.transform === "string" ? v.transform : "",
+    };
   }
   const defaults = {};
-  for (const [k, v] of Object.entries(m.defaults ?? {})) if (typeof v === "string" && v) defaults[k] = v;
+  for (const [k, v] of Object.entries(m.defaults ?? {}))
+    if (typeof v === "string" && v) defaults[k] = v;
   return {
     entity: m.entity,
     ...(typeof m.table === "string" ? { table: m.table } : {}),
@@ -104,7 +197,7 @@ function cleanMapping(input) {
   };
 }
 
-export async function apply(ctx) {
+export async function apply(ctx, config = {}) {
   requireHostCapabilities(ctx);
   const root = join(process.env.DSH_HOME || join(homedir(), ".dsh"), "linggo");
   await mkdir(join(root, "projects"), { recursive: true });
@@ -112,16 +205,19 @@ export async function apply(ctx) {
   const jobs = new Jobs(store);
   const secret = randomBytes(32);
   const settingsFile = join(root, "settings.json");
-  const readSettings = async () => JSON.parse(await readFile(settingsFile, "utf8").catch(() => "{}"));
+  const readSettings = async () =>
+    JSON.parse(await readFile(settingsFile, "utf8").catch(() => "{}"));
   const python = async () => resolvePython(root, (await readSettings()).python);
-  const worker = async (request, options = {}) => runWorker({ python: await python(), request, ...options });
+  const worker = async (request, options = {}) =>
+    runWorker({ python: await python(), request, ...options });
   const mapCache = new Map();
   const actions = [];
   let actionSeq = 0;
 
   await removeLeftovers(store);
   await removeResultLeftovers(store);
-  if (ctx.skills) for (const dispose of registerSkills(ctx.skills)) ctx.effect(() => dispose);
+  if (ctx.skills)
+    for (const dispose of registerSkills(ctx.skills)) ctx.effect(() => dispose);
   ctx.effect(() => () => jobs.dispose());
 
   // Final authority: every tool execution, including PTC sub-calls, passes this guard.
@@ -131,7 +227,11 @@ export async function apply(ctx) {
     const scope = presentationOf(root, exec?.agent?.session?.header?.cwd);
     const state = await store.read();
     const project = state.projects.find((p) => p.id === scope?.projectId);
-    return { state, project, version: project && store.currentVersion(state, project.id) };
+    return {
+      state,
+      project,
+      version: project && store.currentVersion(state, project.id),
+    };
   };
 
   const requireProject = (state, id) => {
@@ -139,12 +239,22 @@ export async function apply(ctx) {
     if (!project) throw Error("Unknown project");
     return project;
   };
-  const analysis = createAnalysis({ store, jobs, worker, scopeOf, requireProject });
+  const analysis = createAnalysis({
+    store,
+    jobs,
+    worker,
+    scopeOf,
+    requireProject,
+    catalog: (await demoAssets()).catalog,
+  });
 
   const mapData = async (projectId, versionId) => {
     const key = `${projectId}/${versionId}`;
     if (!mapCache.has(key)) {
-      const text = await readFile(join(store.versionDir(projectId, versionId), "map.json"), "utf8");
+      const text = await readFile(
+        join(store.versionDir(projectId, versionId), "map.json"),
+        "utf8",
+      );
       mapCache.set(key, JSON.parse(text));
       if (mapCache.size > 8) mapCache.delete(mapCache.keys().next().value);
     }
@@ -157,18 +267,32 @@ export async function apply(ctx) {
       description:
         "Read the current LingGo project, its published data version, the entity row counts and which data is still missing. Does not import or invent data.",
       parameters: {},
-      output: { schema: { type: "json" }, render: (_args, value) => [{ type: "text", text: JSON.stringify(value) }] },
+      output: {
+        schema: { type: "json" },
+        render: (_args, value) => [
+          { type: "text", text: JSON.stringify(value) },
+        ],
+      },
       execute: async (_args, exec) => {
         const { project, version } = await scopeOf(exec);
-        if (!project) return { projectId: null, dataReady: false, missing: Object.values(NEED_LABELS) };
+        if (!project)
+          return {
+            projectId: null,
+            dataReady: false,
+            missing: Object.values(NEED_LABELS),
+          };
         return {
           projectId: project.id,
           projectName: project.name,
           dataVersionId: version?.id ?? null,
           entities: version?.entities ?? {},
           dataReady: Boolean(version),
-          missing: (version?.missing ?? Object.keys(NEED_LABELS)).map((n) => NEED_LABELS[n] ?? n),
+          missing: (version?.missing ?? Object.keys(NEED_LABELS)).map(
+            (n) => NEED_LABELS[n] ?? n,
+          ),
           warnings: version?.warnings ?? [],
+          synthetic: !!version?.provenance?.synthetic,
+          provenance: version?.provenance ?? null,
         };
       },
     }),
@@ -178,26 +302,67 @@ export async function apply(ctx) {
     defineTool({
       name: "linggo_query",
       description:
-        "Read rows of one standard entity from the project's current data version. Entities: stops, routes, route_stops, trips, ridership, od, demand, gps, vehicles, depots. Filter is exact match on columns such as route_id, direction, stop_id.",
+        "Read canonical rows from the current project: stops, routes, route_stops, trips, ridership, od, demand, gps, vehicles, depots, network_nodes, network_edges. Exact-match filters include route_id, direction, stop_id, origin_stop_id, dest_stop_id, time_bin and road endpoints. Bundled snapshots work without Python; synthetic=true means demonstration data.",
       parameters: {
         entity: { type: "string", enum: ENTITY_NAMES, required: true },
         filter: {
           type: "object",
           description: "Exact-match conditions; omit for the first rows.",
-          properties: Object.fromEntries(FILTER_COLUMNS.map((c) => [c, { type: "string" }])),
+          properties: Object.fromEntries(
+            FILTER_COLUMNS.map((c) => [c, { type: "string" }]),
+          ),
           additionalProperties: false,
         },
-        limit: { type: "integer", description: "Rows to return, 1-200 (default 50)." },
+        limit: {
+          type: "integer",
+          description: "Rows to return, 1-200 (default 50).",
+        },
       },
-      output: { schema: { type: "json" }, render: (_args, value) => [{ type: "text", text: JSON.stringify(value) }] },
+      output: {
+        schema: { type: "json" },
+        render: (_args, value) => [
+          { type: "text", text: JSON.stringify(value) },
+        ],
+      },
       execute: async (args, exec) => {
         const { project, version } = await scopeOf(exec);
-        if (!version) return { available: false, message: "当前项目还没有发布的数据版本，请先用左侧导入向导导入数据。" };
-        const value = await worker(
-          { cmd: "query", versionDir: store.versionDir(project.id, version.id), entity: args.entity, filter: args.filter ?? {}, limit: Math.min(Math.max(args.limit ?? 50, 1), 200) },
-          { signal: exec?.signal, timeoutMs: 60_000 },
-        );
-        return { dataVersionId: version.id, ...value };
+        if (!version)
+          return {
+            available: false,
+            message:
+              "当前项目还没有发布的数据版本，请先用左侧导入向导导入数据。",
+          };
+        const value =
+          (await queryDemo(store, project, version, args)) ??
+          (await worker(
+            {
+              cmd: "query",
+              versionDir: store.versionDir(project.id, version.id),
+              entity: args.entity,
+              filter: args.filter ?? {},
+              limit: Math.min(Math.max(args.limit ?? 50, 1), 200),
+            },
+            { signal: exec?.signal, timeoutMs: 60_000 },
+          ));
+        return {
+          dataVersionId: version.id,
+          ...value,
+          ...(version.provenance?.origin === "bundled-demo"
+            ? {
+                synthetic: ![
+                  "stops",
+                  "routes",
+                  "route_stops",
+                  "network_nodes",
+                  "network_edges",
+                ].includes(args.entity),
+                source: version.provenance.entities?.[args.entity],
+                provenance: version.provenance,
+              }
+            : version.provenance?.synthetic
+              ? { synthetic: true, provenance: version.provenance }
+              : {}),
+        };
       },
     }),
   );
@@ -209,23 +374,191 @@ export async function apply(ctx) {
         "Operate the workbench map for the current project: show_route (id = route_id, optional direction), show_stop (id = stop_id), show_run (id = result runId from linggo_results; shows DRT vehicle paths with replay or fleet blocks), show_all, clear. Fails if the id is not in the current data version or results.",
       parameters: {
         action: { type: "string", enum: MAP_ACTIONS, required: true },
-        id: { type: "string", description: "route_id for show_route, stop_id for show_stop, runId for show_run." },
-        direction: { type: "string", description: "Optional route direction, as in route_stops.direction." },
+        id: {
+          type: "string",
+          description:
+            "route_id for show_route, stop_id for show_stop, runId for show_run.",
+        },
+        direction: {
+          type: "string",
+          description: "Optional route direction, as in route_stops.direction.",
+        },
+        origin_stop_id: {
+          type: "string",
+          description: "OD origin stop for show_od.",
+        },
+        dest_stop_id: {
+          type: "string",
+          description: "OD destination stop for show_od.",
+        },
+        time_bin: { type: "string", description: "Optional OD time bin." },
+        route_id: { type: "string" },
+        day_type: { type: "string" },
+        run_id: {
+          type: "string",
+          description:
+            "Current project result ID for vehicle focus or replay seek.",
+        },
+        vehicle_id: { type: "string" },
+        time: {
+          type: "number",
+          description: "Replay seconds after midnight, within result range.",
+        },
       },
-      output: { schema: { type: "json" }, render: (_args, value) => [{ type: "text", text: JSON.stringify(value) }] },
+      output: {
+        schema: { type: "json" },
+        render: (_args, value) => [
+          { type: "text", text: JSON.stringify(value) },
+        ],
+      },
       execute: async (args, exec) => {
         const { project, version } = await scopeOf(exec);
-        if (!version) return { ok: false, message: "当前项目还没有发布的数据版本。" };
+        if (!version)
+          return { ok: false, message: "当前项目还没有发布的数据版本。" };
         const data = await mapData(project.id, version.id);
         let target = null;
         if (args.action === "show_route") {
-          const lines = data.routes.filter((r) => r.id === args.id && (args.direction === undefined || r.dir === args.direction));
-          if (!lines.length) return { ok: false, message: `数据版本中没有线路 ${args.id}` };
-          target = { routeId: args.id, directions: lines.map((l) => l.dir), name: lines[0].name };
+          const lines = data.routes.filter(
+            (r) =>
+              r.id === args.id &&
+              (args.direction === undefined || r.dir === args.direction),
+          );
+          if (!lines.length)
+            return { ok: false, message: `数据版本中没有线路 ${args.id}` };
+          target = {
+            routeId: args.id,
+            directions: lines.map((l) => l.dir),
+            name: lines[0].name,
+          };
         } else if (args.action === "show_stop") {
           const stop = data.stops.find((s) => s[0] === args.id);
-          if (!stop) return { ok: false, message: `数据版本中没有站点 ${args.id}` };
+          if (!stop)
+            return { ok: false, message: `数据版本中没有站点 ${args.id}` };
           target = { stopId: stop[0], name: stop[1] };
+        } else if (args.action === "show_od") {
+          const filter = Object.fromEntries(
+            [
+              "route_id",
+              "direction",
+              "day_type",
+              "time_bin",
+              "origin_stop_id",
+              "dest_stop_id",
+            ]
+              .filter((k) => args[k] !== undefined)
+              .map((k) => [k, args[k]]),
+          );
+          if (!args.route_id && (!args.origin_stop_id || !args.dest_stop_id))
+            return { ok: false, message: "指定线路或 OD 起讫站" };
+          const value =
+            (await queryDemo(store, project, version, {
+              entity: "od",
+              filter,
+              limit: 200,
+            })) ??
+            (await worker({
+              cmd: "query",
+              versionDir: store.versionDir(project.id, version.id),
+              entity: "od",
+              filter,
+              limit: 200,
+            }));
+          if (!value.total)
+            return { ok: false, message: "当前数据没有对应 OD" };
+          // Group the compact demo snapshot before applying the rendering limit.
+          let rows = value.rows;
+          if (value.total > rows.length && version.origin === "bundled-demo") {
+            const tables = JSON.parse(
+              await readFile(
+                join(
+                  store.versionDir(project.id, version.id),
+                  "query-index.json",
+                ),
+                "utf8",
+              ),
+            );
+            rows = tables.od.filter((r) =>
+              Object.entries(filter).every(
+                ([k, v]) => String(r[k]) === String(v),
+              ),
+            );
+          } else if (value.total > rows.length)
+            return { ok: false, message: "请用时段缩小 OD 范围" };
+          const groups = new Map();
+          for (const r of rows) {
+            const o = data.stops.find((s) => s[0] === r.origin_stop_id),
+              d = data.stops.find((s) => s[0] === r.dest_stop_id);
+            if (!o || !d) continue;
+            const key = o[0] + "/" + d[0],
+              f = groups.get(key) ?? {
+                origin: o.slice(2),
+                destination: d.slice(2),
+                originName: o[1],
+                destName: d[1],
+                count: 0,
+              };
+            f.count += +r.count;
+            groups.set(key, f);
+          }
+          const flows = [...groups.values()];
+          if (!flows.length) return { ok: false, message: "缺少 OD 站点坐标" };
+          target = {
+            ...flows[0],
+            flows,
+            count: flows.reduce((n, r) => n + r.count, 0),
+            synthetic: !!value.synthetic,
+            provenance: value.provenance,
+            context: filter,
+          };
+        } else if (["focus_vehicle", "seek_time"].includes(args.action)) {
+          const state = await store.read(),
+            run = state.results.find(
+              (r) =>
+                r.projectId === project.id &&
+                r.id === args.run_id &&
+                r.versionId === version.id,
+            );
+          if (!run) return { ok: false, message: "结果不属于当前项目与数据集" };
+          const result = JSON.parse(
+            await readFile(
+              join(store.resultDir(project.id, run.id), "result.json"),
+              "utf8",
+            ),
+          );
+          if (
+            args.action === "focus_vehicle" &&
+            !result.vehicles?.some((v) => v.vehicle_id === args.vehicle_id)
+          )
+            return { ok: false, message: "结果中没有该车辆" };
+          const times = (result.vehicles ?? []).flatMap((v) =>
+              v.track?.length
+                ? v.track.map((p) => p.t)
+                : (v.stops ?? [])
+                    .flatMap((s) => [s.arrive, s.depart])
+                    .filter(Number.isFinite),
+            ),
+            fleetTimes = (result.blocks ?? [])
+              .flatMap((b) => (b.trips ?? []).flatMap((t) => [t.start, t.end]))
+              .filter(Number.isFinite),
+            allTimes = times.concat(fleetTimes),
+            range =
+              result.range ??
+              (allTimes.length
+                ? [Math.min(...allTimes), Math.max(...allTimes)]
+                : null);
+          if (
+            args.action === "seek_time" &&
+            (!range ||
+              !Number.isFinite(args.time) ||
+              args.time < range[0] ||
+              args.time > range[1])
+          )
+            return { ok: false, message: "回放时间超出结果范围" };
+          target = {
+            runId: run.id,
+            vehicleId: args.vehicle_id,
+            time: args.time,
+          };
         } else if (args.action === "show_run") {
           target = await analysis.showRun(project, args.id);
           if (!target) return { ok: false, message: `没有结果 ${args.id}` };
@@ -241,7 +574,12 @@ export async function apply(ctx) {
         };
         actions.push(action);
         if (actions.length > ACTION_HISTORY) actions.shift();
-        return { ok: true, actionId: action.seq, dataVersionId: version.id, ...target };
+        return {
+          ok: true,
+          actionId: action.seq,
+          dataVersionId: version.id,
+          ...target,
+        };
       },
     }),
   );
@@ -251,7 +589,11 @@ export async function apply(ctx) {
   // Hide non-transit tools and explain the boundary; the guard above still decides.
   const installed = new Map();
   const install = (agent) => {
-    if (installed.has(agent) || !presentationOf(root, agent.session?.header?.cwd)) return;
+    if (
+      installed.has(agent) ||
+      !presentationOf(root, agent.session?.header?.cwd)
+    )
+      return;
     const lifts = [agent.ctx.tools.restrict({ allow: PRESENTATION_TOOLS })];
     const fiber = agent.ctx.inject(["systemPrompt"], (scope) => {
       scope.systemPrompt.section({
@@ -274,7 +616,9 @@ export async function apply(ctx) {
   });
 
   const previewToken = (projectId, source, mapping) =>
-    createHmac("sha256", secret).update(JSON.stringify([projectId, source, mapping])).digest("hex");
+    createHmac("sha256", secret)
+      .update(JSON.stringify([projectId, source, mapping]))
+      .digest("hex");
 
   const startImport = async (input) => {
     const state = await store.read();
@@ -282,9 +626,10 @@ export async function apply(ctx) {
     const source = cleanSource(input.source);
     const mapping = cleanMapping(input.mapping);
     // The job only starts for exactly the source and mapping the user previewed.
-    if (input.previewToken !== previewToken(project.id, source, mapping)) throw Error("请先预览当前映射，再确认导入");
+    if (input.previewToken !== previewToken(project.id, source, mapping))
+      throw Error("请先预览当前映射，再确认导入");
     const base = store.currentVersion(state, project.id);
-    const title = `导入 ${mapping.entity === "gtfs" ? "GTFS" : mapping.entity}：${source.type === "postgis" ? source.table ?? "PostGIS" : source.path.split(/[\\/]/).at(-1)}`;
+    const title = `导入 ${mapping.entity === "gtfs" ? "GTFS" : mapping.entity}：${source.type === "postgis" ? (source.table ?? "PostGIS") : source.path.split(/[\\/]/).at(-1)}`;
     let staging;
     return jobs.start({
       projectId: project.id,
@@ -294,7 +639,13 @@ export async function apply(ctx) {
         staging = store.stagingDir(project.id, randomBytes(8).toString("hex"));
         await mkdir(join(staging, ".."), { recursive: true });
         const value = await worker(
-          { cmd: "ingest", source, mapping, baseDir: base ? store.versionDir(project.id, base.id) : null, stagingDir: staging },
+          {
+            cmd: "ingest",
+            source,
+            mapping,
+            baseDir: base ? store.versionDir(project.id, base.id) : null,
+            stagingDir: staging,
+          },
           { signal, onProgress: progress },
         );
         signal.throwIfAborted();
@@ -303,18 +654,31 @@ export async function apply(ctx) {
         await mkdir(join(final, ".."), { recursive: true });
         await rename(staging, final);
         try {
-          const manifest = JSON.parse(await readFile(join(final, "manifest.json"), "utf8"));
+          const manifest = JSON.parse(
+            await readFile(join(final, "manifest.json"), "utf8"),
+          );
           await store.addDataVersion({
             id,
             projectId: project.id,
             parentId: base?.id ?? null,
             createdAt: new Date().toISOString(),
-            entities: Object.fromEntries(Object.entries(value.entities).map(([k, v]) => [k, { rows: v.rows }])),
+            entities: Object.fromEntries(
+              Object.entries(value.entities).map(([k, v]) => [
+                k,
+                { rows: v.rows },
+              ]),
+            ),
             bbox: value.bbox,
             missing: value.missing,
             warnings: value.report.warnings,
             imports: value.report.imports,
-            sources: manifest.sources.map((s) => ({ type: s.type, entity: s.entity, table: s.table, path: s.path })),
+            provenance: manifest.provenance ?? {},
+            sources: manifest.sources.map((s) => ({
+              type: s.type,
+              entity: s.entity,
+              table: s.table,
+              path: s.path,
+            })),
           });
         } catch (error) {
           await rm(final, { recursive: true, force: true });
@@ -322,12 +686,53 @@ export async function apply(ctx) {
         }
         return { versionId: id, ...value };
       },
-      cleanup: () => (staging ? rm(staging, { recursive: true, force: true }) : Promise.resolve()),
+      cleanup: () =>
+        staging
+          ? rm(staging, { recursive: true, force: true })
+          : Promise.resolve(),
     });
   };
 
   const handle = async (operation, input) => {
     switch (operation) {
+      case "demoInfo":
+        return demoInfo(store, input.projectId);
+      case "ensureDemo":
+      case "recreateDemo": {
+        await ensureDemoAssets(store, {
+          recreate: operation === "recreateDemo",
+        });
+        await ensureDemoSessions(store, ctx);
+        return demoInfo(store);
+      }
+      case "setupPython": {
+        const state = await store.read();
+        const projectId = input.projectId ?? state.demo?.projectId;
+        requireProject(state, projectId);
+        const existing = [...jobs.running.values()].find(
+          ({ job }) => job.kind === "setup",
+        );
+        if (existing) return existing.job;
+        return jobs.start({
+          projectId,
+          kind: "setup",
+          title: "初始化隔离 Python 环境",
+          run: async (signal, progress) => {
+            await setupPythonEnvironment({
+              root,
+              python: (await readSettings()).python,
+              signal,
+              onProgress: progress,
+            });
+            const s = await readSettings();
+            delete s.python;
+            const temporary = settingsFile + ".setup.tmp";
+            await writeFile(temporary, JSON.stringify(s), { mode: 0o600 });
+            await rename(temporary, settingsFile);
+            return worker({ cmd: "doctor" }, { signal, timeoutMs: 30_000 });
+          },
+        });
+      }
       case "launch": {
         return { url: authenticatedWorkbenchUrl(ctx, input.desktop) };
       }
@@ -337,7 +742,8 @@ export async function apply(ctx) {
         return store.createProject(input);
       case "directory": {
         requireProject(await store.read(), input.projectId);
-        if (!["presentation", "development"].includes(input.mode)) throw Error("Invalid session mode");
+        if (!["presentation", "development"].includes(input.mode))
+          throw Error("Invalid session mode");
         const cwd = store.projectDir(input.projectId, input.mode);
         await mkdir(cwd, { recursive: true });
         return { cwd };
@@ -355,13 +761,22 @@ export async function apply(ctx) {
         );
       case "inspect":
         requireProject(await store.read(), input.projectId);
-        return worker({ cmd: "inspect", source: cleanSource(input.source) }, { timeoutMs: 120_000 });
+        return worker(
+          { cmd: "inspect", source: cleanSource(input.source) },
+          { timeoutMs: 120_000 },
+        );
       case "preview": {
         requireProject(await store.read(), input.projectId);
         const source = cleanSource(input.source);
         const mapping = cleanMapping(input.mapping);
-        const value = await worker({ cmd: "preview", source, mapping }, { timeoutMs: 300_000 });
-        return { ...value, previewToken: previewToken(input.projectId, source, mapping) };
+        const value = await worker(
+          { cmd: "preview", source, mapping },
+          { timeoutMs: 300_000 },
+        );
+        return {
+          ...value,
+          previewToken: previewToken(input.projectId, source, mapping),
+        };
       }
       case "startImport":
         return startImport(input);
@@ -375,25 +790,50 @@ export async function apply(ctx) {
         const state = await store.read();
         requireProject(state, input.projectId);
         const version = input.versionId
-          ? state.dataVersions.find((v) => v.id === input.versionId && v.projectId === input.projectId)
+          ? state.dataVersions.find(
+              (v) =>
+                v.id === input.versionId && v.projectId === input.projectId,
+            )
           : store.currentVersion(state, input.projectId);
         if (!version) return null;
-        return { versionId: version.id, ...(await mapData(input.projectId, version.id)) };
+        return {
+          versionId: version.id,
+          ...(await mapData(input.projectId, version.id)),
+        };
       }
       case "mapActions": {
         const since = Number(input.since) || 0;
-        return { seq: actionSeq, actions: actions.filter((a) => a.seq > since && a.projectId === input.projectId) };
+        return {
+          seq: actionSeq,
+          actions: actions.filter(
+            (a) => a.seq > since && a.projectId === input.projectId,
+          ),
+        };
       }
       case "settings": {
         const s = await readSettings();
-        return { amapKey: s.amapKey ?? "", amapSecurityCode: s.amapSecurityCode ?? "", baiduAK: s.baiduAK ?? "", python: s.python ?? "" };
+        return {
+          amapKey: s.amapKey ?? "",
+          amapSecurityCode: s.amapSecurityCode ?? "",
+          baiduAK: s.baiduAK ?? "",
+          python: s.python ?? "",
+        };
       }
       case "saveSettings": {
         const next = { ...(await readSettings()) };
-        for (const key of ["amapKey", "amapSecurityCode", "baiduAK", "python"]) {
+        for (const key of [
+          "amapKey",
+          "amapSecurityCode",
+          "baiduAK",
+          "python",
+        ]) {
           const v = input[key];
-          if (v !== undefined && (typeof v !== "string" || v.length > 1000)) throw Error(`Invalid ${key}`);
-          if (v !== undefined) { if (v.trim()) next[key] = v.trim(); else delete next[key]; }
+          if (v !== undefined && (typeof v !== "string" || v.length > 1000))
+            throw Error(`Invalid ${key}`);
+          if (v !== undefined) {
+            if (v.trim()) next[key] = v.trim();
+            else delete next[key];
+          }
         }
         const tmp = `${settingsFile}.${randomBytes(4).toString("hex")}.tmp`;
         await writeFile(tmp, JSON.stringify(next, null, 2), { mode: 0o600 });
@@ -428,26 +868,59 @@ export async function apply(ctx) {
         let result;
         try {
           request.signal.throwIfAborted();
-          const input = envelope.payload && typeof envelope.payload === "object" ? envelope.payload : {};
+          const input =
+            envelope.payload && typeof envelope.payload === "object"
+              ? envelope.payload
+              : {};
           result = { ok: true, value: await handle(operation, input) };
         } catch (error) {
-          result = { ok: false, error: { code: "LINGGO_REQUEST_FAILED", message: error.message, details: {} } };
+          result = {
+            ok: false,
+            error: {
+              code: "LINGGO_REQUEST_FAILED",
+              message: error.message,
+              details: {},
+            },
+          };
         }
-        return Response.json({ type: "server-response", rpcId: envelope.rpcId, result });
+        return Response.json({
+          type: "server-response",
+          rpcId: envelope.rpcId,
+          result,
+        });
       },
     });
+  }
+  if (config.demo !== false) {
+    await ensureDemoAssets(store);
+    const initialize = () =>
+      ensureDemoSessions(store, ctx).catch((error) => {
+        ctx.logger?.warn?.(
+          `LingGo demo initialization can be retried: ${error.message}`,
+        );
+      });
+    if (ctx.inject) {
+      const fiber = ctx.inject(
+        ["sessions", "sessionController", "workspaceController"],
+        initialize,
+      );
+      ctx.effect(() => () => fiber.dispose());
+    } else await initialize();
   }
 }
 
 /** Staging output of interrupted imports and version folders never recorded in state are removed. */
 async function removeLeftovers(store) {
   const state = await store.read();
-  const known = new Set(state.dataVersions.map((v) => `${v.projectId}/${v.id}`));
+  const known = new Set(
+    state.dataVersions.map((v) => `${v.projectId}/${v.id}`),
+  );
   for (const project of state.projects) {
     const data = join(store.root, "projects", project.id, "data");
     await rm(join(data, "staging"), { recursive: true, force: true });
     const versions = await readdir(join(data, "versions")).catch(() => []);
     for (const id of versions)
-      if (!known.has(`${project.id}/${id}`)) await rm(join(data, "versions", id), { recursive: true, force: true });
+      if (!known.has(`${project.id}/${id}`))
+        await rm(join(data, "versions", id), { recursive: true, force: true });
   }
 }

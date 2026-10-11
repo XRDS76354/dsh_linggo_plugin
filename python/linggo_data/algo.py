@@ -13,11 +13,11 @@ import sys
 
 import pandas as pd
 
-from . import drt, fleet, tripgen, jsonio
+from . import drt, drt_v2, fleet, tripgen, jsonio
 from .geo import km, travel_s
 from .schema import ENTITIES
 
-BUILTINS = {m.META["id"]: m for m in (drt, fleet, tripgen)}
+BUILTINS = {m.META["id"]: m for m in (drt, fleet, tripgen, drt_v2)}
 VALIDATORS = {"drt": drt.validate, "fleet": fleet.validate, "tripgen": tripgen.validate}
 KINDS = ["drt", "fleet", "tripgen", "custom"]
 PARAM_TYPES = ["integer", "number", "boolean", "string", "enum"]
@@ -149,6 +149,16 @@ def run(req, progress):
     mod, meta = module_of(req["algorithm"])
     params = clean_params(meta, req.get("params"))
     inputs = load_inputs(req["versionDir"], meta)
+    import json
+    try:
+        with open(os.path.join(req["versionDir"], "manifest.json"), encoding="utf-8") as f:
+            provenance = json.load(f).get("provenance", {})
+    except FileNotFoundError:
+        provenance = {}
+    if provenance.get("demoVersion") == 2:
+        provenance = {**provenance, "origin": "simulated-operations", "synthetic": True}
+    if req["algorithm"].get("builtin") == "drt_v2":
+        inputs["__synthetic__"] = bool(provenance.get("synthetic"))
     progress(0.02, "读取数据")
     result = mod.run(inputs, params, Context(progress))
     if not isinstance(result, dict):
@@ -158,7 +168,9 @@ def run(req, progress):
     if result["kind"] != meta["kind"]:
         raise ValueError("结果 kind 与 META.kind 不一致")
     validator = VALIDATORS.get(meta["kind"])
-    errors = validator(result, params) if validator else []
+    errors = drt_v2.validate(result, params, inputs) if req["algorithm"].get("builtin") == "drt_v2" else validator(result, params) if validator else []
+    result["synthetic"] = bool(result.get("synthetic")) or bool(provenance.get("synthetic"))
+    result["provenance"] = provenance
     result["validation"] = {"ok": not errors, "count": len(errors), "violations": errors[:50], "checked": bool(validator)}
     result["params"] = params
     os.makedirs(req["resultDir"], exist_ok=True)

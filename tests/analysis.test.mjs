@@ -48,7 +48,7 @@ test("an agent proposal runs only after the user's confirmed preview; results ar
     const exec = { agent: { sessionId: "sess-1", session: { header: { cwd: join(h.home, "linggo", "projects", project.id, "presentation") } } } };
 
     const list = await h.tools.linggo_algorithms.execute({}, exec);
-    assert.deepEqual(list.algorithms.map((a) => a.id), ["drt_insertion", "fleet_assignment", "trip_generation"]);
+    assert.deepEqual(list.algorithms.map((a) => a.id), ["drt_insertion", "fleet_assignment", "trip_generation", "drt_v2"]);
     assert.equal((await h.tools.linggo_propose_run.execute({ algorithm: "drt_insertion", params: { fleet_size: 0 } }, exec)).ok, false);
     const proposed = await h.tools.linggo_propose_run.execute(
       { algorithm: "drt_insertion", batch: [{ demand_source: "synthetic", synthetic_requests: 30, fleet_size: 3 }, { demand_source: "synthetic", synthetic_requests: 30, fleet_size: 6 }], reason: "对比车队规模" },

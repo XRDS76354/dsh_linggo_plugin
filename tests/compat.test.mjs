@@ -71,3 +71,24 @@ test('Host never activates without the final tool guard or authenticated transpo
   assert.equal(url.searchParams.get('token'), 'test-only');
   assert.equal(url.hash, '#linggo=1&desktopReturn=1');
 });
+
+test('demo questions use safe draft initialization and preserve an existing draft', async () => {
+  const { adapter, calls } = fixture(() => 'preserved');
+  assert.equal(await adapter.prepareQuestion('existing', 'Synthetic OD question'), 'preserved');
+  assert.deepEqual(calls.slice(-2), [['draft', 'existing', 'Synthetic OD question'], ['open', 'existing']]);
+});
+
+test('legacy demo question copies explicitly without modifying or submitting the native draft', async () => {
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  let copied;
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { clipboard: { writeText: async (text) => { copied = text; } } } });
+  try {
+    const { adapter, calls } = fixture();
+    assert.equal(await adapter.prepareQuestion('existing', 'Synthetic OD question'), 'manual');
+    assert.equal(copied, 'Synthetic OD question');
+    assert.equal(calls.some(([op]) => op === 'draft' || op === 'submit'), false);
+  } finally {
+    if (original) Object.defineProperty(globalThis, 'navigator', original);
+    else delete globalThis.navigator;
+  }
+});

@@ -23,6 +23,7 @@ META = {
         {"entity": "vehicles", "required": False},
     ],
     "params": {
+        "day_type": {"type": "enum", "options": ["workday", "saturday", "sunday"], "default": "workday", "label": "客流日型（无日型数据时忽略）"},
         "capacity": {"type": "integer", "default": 80, "min": 5, "max": 300, "label": "单车额定载客"},
         "load_factor": {"type": "number", "default": 0.85, "min": 0.1, "max": 1.5, "label": "目标满载率"},
         "min_headway_min": {"type": "number", "default": 3, "min": 1, "max": 60, "label": "最小发车间隔（分钟）"},
@@ -82,6 +83,8 @@ def solve(inputs, p, progress=lambda v, m="": None):
     if p["min_headway_min"] > p["max_headway_min"]:
         raise ValueError("最小发车间隔不能大于最大发车间隔")
     rid = inputs["ridership"]
+    if "day_type" in rid and rid["day_type"].ne("").any():
+        rid = rid[rid["day_type"] == p.get("day_type", "workday")]
     if p["routes"]:
         keep = {x.strip() for x in p["routes"].split(",") if x.strip()}
         rid = rid[rid["route_id"].astype(str).isin(keep)]

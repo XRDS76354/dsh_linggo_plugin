@@ -13,7 +13,7 @@ try {
 if (!ready && (process.env.LINGGO_TEST_PYTHON || process.env.LINGGO_REQUIRE_PYTHON))
   throw Error(`Required Python test environment unavailable: ${python}`);
 
-export async function host() {
+export async function host(options = {}) {
   const home = await mkdtemp(join(tmpdir(), "linggo-data-"));
   process.env.DSH_HOME = home;
   await writeFile(join(home, "settings.json"), "{}").catch(() => {});
@@ -29,7 +29,7 @@ export async function host() {
     connection: { fetch: { register: (r) => (routes[r.path] = r.fetch) }, authenticatedUrl: (u) => u },
   };
   const { apply } = await import(`../src/index.js?home=${encodeURIComponent(home)}`);
-  await apply(ctx);
+  await apply(ctx, { demo: false, ...options });
   const call = async (op, payload = {}) => {
     const res = await routes[`/api/linggo.${op}`](
       new Request("http://h/api", { method: "POST", body: JSON.stringify({ type: "client-request", rpcId: "1", method: `linggo.${op}`, payload }) }),

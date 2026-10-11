@@ -5,6 +5,7 @@ export const SIDEBAR_PAGE_SIZE = 5;
 export const ENTITY_ORDER = [
   "stops", "routes", "route_stops", "trips", "ridership", "od",
   "demand", "gps", "vehicles", "depots",
+  "network_nodes", "network_edges",
 ];
 
 /** Keep selected/active rows visible without consuming the ordinary row quota. */
@@ -29,16 +30,17 @@ function datasetEntities(dataset) {
 
 export function datasetLabel(t, dataset) {
   const entities = datasetEntities(dataset);
-  return entities.length
+  const label = entities.length
     ? entities.slice(0, 3).map((key) => t("entity." + key)).join(" · ") +
         (entities.length > 3 ? " …" : "")
     : dataset.id.slice(0, 8);
+  return (dataset.provenance?.synthetic ? t("demo.synthetic") + " · " : "") + label;
 }
 
 export function datasetSummary(t, dataset) {
   if (!dataset) return t("wb.noData");
   const counts = datasetEntities(dataset).slice(0, 2).map((key) =>
-    t("entity." + key) + " " + dataset.entities[key].rows.toLocaleString(),
+    t("entity." + key) + " " + (dataset.entities[key].uniqueCount ?? dataset.entities[key].rows).toLocaleString(),
   );
   return [datasetLabel(t, dataset), ...counts].join(" · ");
 }

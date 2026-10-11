@@ -10,6 +10,8 @@ import {
 } from "./data.jsx";
 import { mapStyle } from "./map-view.jsx";
 import { AnalysisView, analysisStyle } from "./analysis.jsx";
+import { demoStyle } from "./demo-ui.jsx";
+import { installDemoIntroduction } from "./demo-conversation.jsx";
 import {
   createClientAdapter,
   installPresentationStyle,
@@ -33,6 +35,7 @@ export const inject = [
   "uiWorkspace",
   "connection",
   "conversation",
+  "uiConversation",
   "layout",
   "locale",
 ];
@@ -89,7 +92,7 @@ html[data-linggo][data-linggo-blocked] ${FRAME}>:nth-child(2),html[data-linggo][
   .linggo-cover{top:44px;left:0;}
   html[data-linggo-view="workspace"] .linggo-cover{display:none;}
 }
-${dataStyle}${analysisStyle}${workbenchStyle}${mapStyle}
+${dataStyle}${analysisStyle}${workbenchStyle}${mapStyle}${demoStyle}
 @media(max-width:899px){html[data-linggo-view="project"] ${FRAME}>:nth-child(2),html[data-linggo-view="map"] ${FRAME}>:nth-child(2){visibility:hidden;}html[data-linggo-view="chat"] .linggo-cover{display:grid;}html:not([data-linggo-view="chat"]) .linggo-cover{display:none;}}`;
 
 const norm = (p) => (p ?? "").replaceAll("\\", "/").replace(/\/+$/, "");
@@ -207,6 +210,7 @@ function Workbench({
   newPresentation,
   openSession,
   ensureProjectWorkspaces,
+  prepareQuestion,
   useSessions,
   useWorkspaces,
 }) {
@@ -233,6 +237,11 @@ function Workbench({
   const [jobs, setJobs] = useState([]);
   const [runId, setRunId] = useState(null);
   const [proposalCount, setProposalCount] = useState(0);
+  const [demo, setDemo] = useState(null);
+  const [analysisSelection, setAnalysisSelection] = useState("");
+  const [analysisParams, setAnalysisParams] = useState(null);
+  const [analysisResult, setAnalysisResult] = useState("");
+  const [odTarget, setODTarget] = useState(null);
   useEffect(() => {
     setSessionLimit(SIDEBAR_PAGE_SIZE);
   }, [project, sessionSearch, sessionsOpen]);
@@ -259,6 +268,29 @@ function Workbench({
   const currentProject = presentationProject(current?.cwd);
   const known = state.projects.some((p) => p.id === project);
   const selected = state.projects.find((p) => p.id === project);
+  useEffect(() => {
+    let live = true;
+    setDemo(null);
+    setODTarget(null);
+    setRunId(null);
+    setTab("map");
+    if (known)
+      api("demoInfo", { projectId: project }).then(
+        (value) => live && setDemo(value),
+        () => {},
+      );
+    return () => {
+      live = false;
+    };
+  }, [project, known]);
+  useEffect(() => {
+    if (
+      new URLSearchParams(location.hash.slice(1)).get("demo") === "1" &&
+      state.demo?.projectId &&
+      state.projects.some((p) => p.id === state.demo.projectId)
+    )
+      setProject(state.demo.projectId);
+  }, [state.demo?.projectId]);
   const blocked = !known || currentProject !== project;
   const history = useMemo(
     () =>
@@ -353,30 +385,44 @@ function Workbench({
       .toLowerCase()
       .includes(sessionSearch.toLowerCase()),
   );
-  const visibleHistory = limitSidebarRows(filteredHistory, sessionLimit,
-    (row) => row.id === current?.id || row.running || row.runningSubagentCount > 0,
+  const visibleHistory = limitSidebarRows(
+    filteredHistory,
+    sessionLimit,
+    (row) =>
+      row.id === current?.id || row.running || row.runningSubagentCount > 0,
   );
   const sessionRows = visibleHistory.rows.map((row) =>
     h(
       "li",
       { key: row.id },
-      h("button", {
-        type: "button",
-        className: "linggo-sidebar-row",
-        "aria-current": row.id === current?.id ? "true" : undefined,
-        title: row.displayTitle || t("wb.untitled"),
-        onClick: () => {
-          openSession(row.id);
-          setView("chat");
-        },
-      },
-      h("span", { className: "linggo-row-title" }, row.displayTitle || t("wb.untitled")),
       h(
-        "span",
-        { className: "linggo-row-meta" },
-        row.running && h("span", { className: "running", "aria-label": t("job.running") }, "●"),
-        sessionTime(row),
-      ),
+        "button",
+        {
+          type: "button",
+          className: "linggo-sidebar-row",
+          "aria-current": row.id === current?.id ? "true" : undefined,
+          title: row.displayTitle || t("wb.untitled"),
+          onClick: () => {
+            openSession(row.id);
+            setView("chat");
+          },
+        },
+        h(
+          "span",
+          { className: "linggo-row-title" },
+          row.displayTitle || t("wb.untitled"),
+        ),
+        h(
+          "span",
+          { className: "linggo-row-meta" },
+          row.running &&
+            h(
+              "span",
+              { className: "running", "aria-label": t("job.running") },
+              "●",
+            ),
+          sessionTime(row),
+        ),
       ),
     ),
   );
@@ -501,12 +547,13 @@ function Workbench({
                       title: t("wb.newSession"),
                       "aria-label": t("wb.newSession"),
                       disabled: busy || !known,
-                      onClick: () => run(async () => {
-                        await newPresentation(project);
-                        setSessionSearch("");
-                        setSearchOpen(false);
-                        setSessionsOpen(true);
-                      }),
+                      onClick: () =>
+                        run(async () => {
+                          await newPresentation(project);
+                          setSessionSearch("");
+                          setSearchOpen(false);
+                          setSessionsOpen(true);
+                        }),
                     },
                     h(Icon, { name: "plus", size: 16 }),
                   ),
@@ -523,16 +570,31 @@ function Workbench({
                 }),
               h(
                 "ul",
-                { className: "linggo-sidebar-list", "aria-label": t("wb.sessions") },
+                {
+                  className: "linggo-sidebar-list",
+                  "aria-label": t("wb.sessions"),
+                },
                 ...sessionRows,
               ),
-              visibleHistory.hiddenCount > 0 && h("button", {
-                type: "button",
-                className: "linggo-show-more",
-                onClick: () => setSessionLimit((n) => n + SIDEBAR_PAGE_SIZE),
-              }, t("ui.showMore", { count: String(visibleHistory.hiddenCount) })),
-              !filteredHistory.length && h("small", null,
-                t(sessionSearch ? "ui.noSearchResults" : "wb.noSessions")),
+              visibleHistory.hiddenCount > 0 &&
+                h(
+                  "button",
+                  {
+                    type: "button",
+                    className: "linggo-show-more",
+                    onClick: () =>
+                      setSessionLimit((n) => n + SIDEBAR_PAGE_SIZE),
+                  },
+                  t("ui.showMore", {
+                    count: String(visibleHistory.hiddenCount),
+                  }),
+                ),
+              !filteredHistory.length &&
+                h(
+                  "small",
+                  null,
+                  t(sessionSearch ? "ui.noSearchResults" : "wb.noSessions"),
+                ),
             ),
             known &&
               h(DataSummary, {
@@ -790,6 +852,9 @@ function Workbench({
                 refreshJobs,
                 run,
                 busy,
+                initialAlgorithm: analysisSelection,
+                initialParams: analysisParams,
+                initialResult: analysisResult,
                 onShowRun: (id) => (setRunId(id), setTab("map")),
               })
             : currentVersion
@@ -835,6 +900,22 @@ function Workbench({
                     project,
                     versionId: currentVersion.id,
                     hasTrips: !!currentVersion.entities?.trips,
+                    isDemo: selected?.origin === "bundled-demo",
+                    demo,
+                    onGuide: (entry) => {
+                      if (entry === "development") {
+                        openSession(demo?.developmentSessionId);
+                        return;
+                      }
+                      setTab(entry);
+                    },
+                    onAnalyze: (id = "", params = null, result = "") => {
+                      setAnalysisSelection(id);
+                      setAnalysisParams(params);
+                      setAnalysisResult(result);
+                      setTab("analysis");
+                    },
+                    odTarget,
                     runId,
                     onRun: setRunId,
                   }),
@@ -984,7 +1065,15 @@ function PanelIcon({ size = 20 }) {
   );
 }
 
-function DevPanel({ t, api, onReset, openHandoff, capabilities, useSessions }) {
+function DevPanel({
+  t,
+  api,
+  onReset,
+  openHandoff,
+  capabilities,
+  useSessions,
+  openSession,
+}) {
   const { state, refresh, loadError } = useLinggoState(api, onReset);
   const { error, busy, note, run, clear } = useAsync(t);
   const [showArchived, setShowArchived] = useState(false);
@@ -992,6 +1081,7 @@ function DevPanel({ t, api, onReset, openHandoff, capabilities, useSessions }) {
   const desktop =
     location.protocol !== "http:" && location.protocol !== "https:";
   const [launch, setLaunch] = useState("");
+  const [demo, setDemo] = useState(null);
   const webUrl = new URL(location.href);
   webUrl.hash = "linggo=1";
   const fetchLaunch = () =>
@@ -1001,8 +1091,18 @@ function DevPanel({ t, api, onReset, openHandoff, capabilities, useSessions }) {
     );
   useEffect(() => {
     if (desktop) fetchLaunch();
+    api("demoInfo", {}).then(setDemo, () => {});
   }, []);
   const projects = Object.fromEntries(state.projects.map((p) => [p.id, p]));
+  const demoUrl = desktop
+    ? launch
+      ? launch + "&demo=1"
+      : undefined
+    : (() => {
+        const url = new URL(webUrl.href);
+        url.hash = "linggo=1&demo=1";
+        return url.href;
+      })();
   const handoffs = state.handoffs
     .filter((x) => showArchived || !x.archivedAt)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -1012,6 +1112,60 @@ function DevPanel({ t, api, onReset, openHandoff, capabilities, useSessions }) {
     { className: "linggo-root linggo-panel" },
     h("h2", null, t("dev.title")),
     h("p", { className: "linggo-note" }, t("dev.intro")),
+    demo &&
+      h(
+        "section",
+        { className: "linggo-demo-opening", "aria-label": t("demo.title") },
+        h(
+          "strong",
+          null,
+          t("demo.title"),
+          h("span", { className: "linggo-demo-badge" }, "真实线网 · 模拟运营"),
+        ),
+        h("p", { className: "linggo-note" }, t("demo.intro")),
+        h(
+          "a",
+          {
+            className: "linggo-btn",
+            href: demoUrl,
+            target: "_blank",
+            rel: "noopener noreferrer",
+            onClick: () => desktop && setTimeout(fetchLaunch, 500),
+          },
+          t("demo.tryDemo"),
+        ),
+        !demo.removed &&
+          h(
+            "button",
+            {
+              disabled: !demo.nativeReady,
+              onClick: () => openSession(demo.presentationSessionId),
+            },
+            t("demo.openPresentation"),
+          ),
+        !demo.removed &&
+          h(
+            "button",
+            {
+              disabled: !demo.nativeReady,
+              onClick: () => openSession(demo.developmentSessionId),
+            },
+            t("demo.openDevelopment"),
+          ),
+        h(
+          "button",
+          {
+            disabled: busy,
+            onClick: () =>
+              run(async () => {
+                setDemo(await api("recreateDemo", {}));
+                await refresh();
+                return t("demo.recreated");
+              }),
+          },
+          demo.updateAvailable ? "更新演示" : t("demo.recreate"),
+        ),
+      ),
     desktop
       ? h(
           "a",
@@ -1165,6 +1319,7 @@ export function isWorkbenchLocation(loc = location) {
 
 export function apply(ctx) {
   const enabled = isWorkbenchLocation();
+  ctx.effect(() => installDemoIntroduction(ctx));
   ctx.effect(() => ctx.locale.register(NS, { zh, en }));
   const t = ctx.locale.bind(NS);
 
@@ -1199,12 +1354,13 @@ export function apply(ctx) {
         newPresentation,
         openSession,
         ensureProjectWorkspaces: adapter.ensureProjectWorkspaces,
+        prepareQuestion: adapter.prepareQuestion,
       },
       Workbench,
     );
   } else {
     adapter.mountDevelopment(
-      { t, api, onReset, openHandoff, capabilities },
+      { t, api, onReset, openHandoff, capabilities, openSession },
       DevPanel,
       PanelIcon,
     );

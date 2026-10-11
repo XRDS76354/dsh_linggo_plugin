@@ -3,6 +3,14 @@ import { mapModel, bounds, routeColor } from "./map-model.js";
 import { createMapAdapter } from "./map-adapters.js";
 import { Replay, buildOverlay, overlayBox } from "./analysis.jsx";
 import { readPreference, writePreference } from "./layout.js";
+import {
+  LineAnalytics,
+  DrtPanels,
+  FunctionGuide,
+  busOverlay,
+  mapDemoStyle,
+} from "./map-demo.jsx";
+import { positionAt } from "./map-replay.js";
 const h = React.createElement,
   ENGINE_KEY = "linggo.map.provider",
   STOPS_KEY = "linggo.map.showStops";
@@ -14,6 +22,11 @@ export function MapView({
   hasTrips,
   runId,
   onRun,
+  isDemo = false,
+  demo = null,
+  onGuide,
+  onAnalyze,
+  odTarget = null,
 }) {
   const [data, setData] = useState(null),
     [error, setError] = useState(""),
@@ -35,6 +48,45 @@ export function MapView({
     [showStops, setShowStops] = useState(
       () => readPreference(localStorage, STOPS_KEY, true) !== false,
     );
+  const [mode, setMode] = useState("bus"),
+    [day, setDay] = useState("workday"),
+    [bin, setBin] = useState("all");
+  const [odFlow, setODFlow] = useState(odTarget);
+  useEffect(() => setODFlow(odTarget), [odTarget]);
+  useEffect(() => {
+    if (!odFlow?.selectionContext || !demo?.tables || !modelRef.current) return;
+    const m = modelRef.current;
+    const rows = demo.tables.od.filter(
+      (r) =>
+        r.route_id === selection.routeId &&
+        r.direction === selection.direction &&
+        r.day_type === day &&
+        (bin === "all" ||
+          r.time_bin.slice(0, 5) ===
+            new Date(+bin * 1800000).toISOString().slice(11, 16)),
+    );
+    const groups = new Map();
+    for (const r of rows) {
+      const key = r.origin_stop_id + "/" + r.dest_stop_id,
+        o = m.stops.get(r.origin_stop_id),
+        d = m.stops.get(r.dest_stop_id);
+      if (!o || !d) continue;
+      const f = groups.get(key) ?? {
+        origin: o.slice(2),
+        destination: d.slice(2),
+        count: 0,
+      };
+      f.count += +r.count;
+      groups.set(key, f);
+    }
+    setODFlow((old) => ({
+      ...old,
+      flows: [...groups.values()],
+      originName: selection.routeId + "路",
+      count: rows.reduce((n, r) => n + +r.count, 0),
+    }));
+  }, [day, bin, selection.routeId, selection.direction]);
+  const pendingReplay = useRef(null);
   const alive = useRef(true);
   useEffect(
     () => () => {
@@ -59,6 +111,10 @@ export function MapView({
           ? { ...old, stopId: next.stopId }
           : {},
     );
+    if (next.vehicleId) {
+      setSelection(next);
+      return;
+    }
     if (next.routeId) {
       setVisible((old) => new Set([...old, next.routeId]));
       setPanel("detail");
@@ -86,6 +142,10 @@ export function MapView({
         if (live) {
           setData(d);
           setVisible(new Set(d.routes.map((l) => l.id)));
+          if (d.demoScene) {
+            setSelection({ routeId: "1009", direction: "0" });
+            setPanel("detail");
+          }
         }
       },
       (e) => live && setError(e.message),
@@ -102,11 +162,13 @@ export function MapView({
         setEngine(
           ["amap", "baidu", "canvas"].includes(saved)
             ? saved
-            : s.amapKey
-              ? "amap"
-              : s.baiduAK
-                ? "baidu"
-                : "canvas",
+            : isDemo
+              ? "canvas"
+              : s.amapKey
+                ? "amap"
+                : s.baiduAK
+                  ? "baidu"
+                  : "canvas",
         );
       },
       () => {
@@ -126,8 +188,20 @@ export function MapView({
         ({ run, result }) => {
           if (!live) return;
           const o = buildOverlay(run, result);
+          if (run.kind === "drt") {
+            setMode("drt");
+            setSelection({});
+          }
           setOverlay(o);
-          setTime(o.range?.[0] ?? 0);
+          const pending = pendingReplay.current;
+          setTime(
+            pending?.runId === run.id && Number.isFinite(pending.time)
+              ? pending.time
+              : (o.range?.[0] ?? 0),
+          );
+          if (pending?.runId === run.id && pending.vehicleId)
+            setSelection({ vehicleId: pending.vehicleId });
+          pendingReplay.current = null;
           adapter.current?.setViewport(overlayBox(o));
         },
         (e) => live && setError(e.message),
@@ -136,14 +210,39 @@ export function MapView({
   }, [project, runId]);
   const applyAction = (a) => {
     if (a.versionId !== versionId) return;
-    if (a.action === "show_run") onRun?.(a.target.runId);
-    else if (["clear", "show_all"].includes(a.action)) {
+    if (["focus_vehicle", "seek_time"].includes(a.action)) {
+      if (a.target.runId !== runId) pendingReplay.current = a.target;
+      onRun?.(a.target.runId);
+      if (a.target.vehicleId) setSelection({ vehicleId: a.target.vehicleId });
+      if (Number.isFinite(a.target.time)) setTime(a.target.time);
+    } else if (a.action === "show_od") {
+      setODFlow(a.target);
+      adapter.current?.setViewport(
+        bounds(
+          (a.target.flows ?? [a.target]).flatMap((f) => [
+            f.origin,
+            f.destination,
+          ]),
+        ),
+      );
+    } else if (a.action === "show_run") {
+      setODFlow(null);
+      onRun?.(a.target.runId);
+    } else if (["clear", "show_all"].includes(a.action)) {
       setSelection({});
+      setMode("bus");
+      setOverlay(null);
+      setODFlow(null);
       if (a.action === "show_all")
         setVisible(new Set(modelRef.current?.routes.keys()));
       else onRun?.(null);
       adapter.current?.setViewport(modelRef.current?.bbox);
-    } else select({ ...a.target, direction: a.target?.directions?.[0] }, true);
+    } else {
+      setMode("bus");
+      setOverlay(null);
+      onRun?.(null);
+      select({ ...a.target, direction: a.target?.directions?.[0] }, true);
+    }
   };
   actionRef.current = applyAction;
   useEffect(() => {
@@ -181,7 +280,12 @@ export function MapView({
     let live = true,
       own = null,
       fitted = false;
-    const initialViewport = camera.current ?? model.bbox;
+    const initialViewport =
+      camera.current ??
+      (data.demoScene
+        ? bounds((model.routes.get("1009") ?? []).flatMap((l) => l.path))
+        : null) ??
+      model.bbox;
     const initialFit = !camera.current;
     const el = host.current;
     setFailure("");
@@ -227,8 +331,22 @@ export function MapView({
         return;
       }
       adapter.current = own;
+      own.render(sceneRef.current);
       if (el.clientWidth && el.clientHeight) {
-        own.setViewport(initialViewport, initialFit);
+        const scene = sceneRef.current;
+        const resultBounds = scene?.overlay ? overlayBox(scene.overlay) : null;
+        const odBounds = scene?.odFlow
+          ? bounds(
+              (scene.odFlow.flows ?? [scene.odFlow]).flatMap((f) => [
+                f.origin,
+                f.destination,
+              ]),
+            )
+          : null;
+        own.setViewport(
+          resultBounds ?? odBounds ?? initialViewport,
+          resultBounds || odBounds ? true : initialFit,
+        );
         fitted = true;
       }
       own.render(sceneRef.current);
@@ -254,14 +372,29 @@ export function MapView({
     };
   }, [model, settings, engine, retry]);
   const sceneRef = useRef(null);
-  sceneRef.current = { model, visible, selection, overlay, time, showStops };
+  sceneRef.current = {
+    model,
+    demo: !!data?.demoScene,
+    visible: mode === "drt" ? new Set() : visible,
+    selection,
+    overlay,
+    time,
+    showStops: mode === "bus" && showStops,
+    odFlow: mode === "bus" ? odFlow : null,
+  };
+  useEffect(() => {
+    if (overlay && adapter.current) {
+      adapter.current.render(sceneRef.current);
+      adapter.current.setViewport(overlayBox(overlay));
+    }
+  }, [overlay]);
   useEffect(() => {
     adapter.current?.render(sceneRef.current);
     const s = model?.stops.get(selection.stopId);
     setAnchor(
       s && adapter.current ? adapter.current.project([s[2], s[3]]) : null,
     );
-  }, [model, visible, selection, overlay, time, showStops]);
+  }, [model, visible, selection, overlay, time, showStops, odFlow, mode]);
   if (!versionId)
     return h("p", { className: "linggo-note" }, t("wb.mapNoData"));
   if (error && !model)
@@ -288,7 +421,11 @@ export function MapView({
     return h("p", { className: "linggo-note" }, t("map.noGeometry"));
   const wide = width >= 900,
     lines = model.routes.get(selection.routeId) ?? [],
-    line = lines.find((l) => l.dir === selection.direction) ?? lines[0],
+    line =
+      mode === "drt"
+        ? null
+        : (lines.find((l) => l.dir === selection.direction) ??
+          (mode === "drt" ? null : lines[0])),
     stop = model.stops.get(selection.stopId);
   const q = search.trim().toLowerCase();
   const matches = (l) =>
@@ -305,7 +442,10 @@ export function MapView({
   };
   return h(
     "div",
-    { className: "linggo-mapwrap", "data-map-width": wide ? "wide" : "narrow" },
+    {
+      className: "linggo-mapwrap" + (isDemo ? " linggo-mapdemo" : ""),
+      "data-map-width": wide ? "wide" : "narrow",
+    },
     h("div", {
       className: "linggo-map-host",
       ref: host,
@@ -314,23 +454,66 @@ export function MapView({
     h(
       "div",
       { className: "linggo-map-tools" },
-      h(
-        "button",
-        {
-          className: "primary",
-          onClick: () => {
-            setPanel("routes");
-            setCollapsed(!collapsed || (!wide && panel === "detail"));
+      data.demoScene &&
+        isDemo &&
+        h(
+          "button",
+          {
+            className: "linggo-mode",
+            disabled: !demo?.resultIds?.recorded,
+            "aria-pressed": mode === "drt",
+            onClick: () => {
+              const next = mode === "bus" ? "drt" : "bus";
+              setMode(next);
+              setODFlow(null);
+              setOverlay(null);
+              onRun?.(next === "drt" ? demo?.resultIds?.recorded : null);
+              setSelection(
+                next === "bus" ? { routeId: "1009", direction: "0" } : {},
+              );
+            },
           },
-          "aria-expanded": !collapsed && (!wide ? panel === "routes" : true),
-        },
-        t("map.routes"),
-      ),
+          mode === "bus" ? "常规公交" : "DRT 调度",
+        ),
+      mode === "drt" &&
+        demo &&
+        h(
+          "select",
+          {
+            "aria-label": "DRT 场景",
+            value:
+              Object.entries(demo.resultIds).find(
+                ([, id]) => id === runId,
+              )?.[0] ?? "recorded",
+            onChange: (e) => onRun?.(demo.resultIds[e.target.value]),
+          },
+          ...[
+            ["recorded", "既有片段"],
+            ["drt-a", "模拟 A"],
+            ["drt-b", "模拟 B"],
+          ].map(([k, v]) => h("option", { key: k, value: k }, v)),
+        ),
+      mode === "bus" &&
+        h(
+          "button",
+          {
+            className: "primary",
+            onClick: () => {
+              setPanel("routes");
+              setCollapsed(!collapsed || (!wide && panel === "detail"));
+            },
+            "aria-expanded": !collapsed && (!wide ? panel === "routes" : true),
+          },
+          t("map.routes"),
+        ),
       h(
         "button",
         {
           "aria-label": t("map.reset"),
-          onClick: () => adapter.current?.setViewport(model.bbox),
+          onClick: () =>
+            adapter.current?.setViewport(
+              overlay ? overlayBox(overlay) : model.bbox,
+            ),
         },
         "⌖ " + t("map.reset"),
       ),
@@ -390,7 +573,8 @@ export function MapView({
         { className: "linggo-map-warning", role: "status" },
         t("map.truncated"),
       ),
-    !collapsed &&
+    mode === "bus" &&
+      !collapsed &&
       (wide || panel === "routes") &&
       h(
         "section",
@@ -545,9 +729,13 @@ export function MapView({
                 h(
                   "option",
                   { value: l.key, key: l.key },
-                  t("map.originalDirection") +
-                    ": " +
-                    (l.dir ?? t("map.missingValue")),
+                  data.demoScene
+                    ? l.dir === "0"
+                      ? "去程"
+                      : "回程"
+                    : t("map.originalDirection") +
+                        ": " +
+                        (l.dir ?? t("map.missingValue")),
                 ),
               ),
             ),
@@ -575,6 +763,68 @@ export function MapView({
                   : "map.stopConnections",
               ),
             ),
+            h(LineAnalytics, {
+              line,
+              scene: data.demoScene,
+              tables: demo?.tables,
+              presets: demo?.results,
+              day,
+              setDay,
+              bin,
+              setBin,
+              onAnalyze,
+              onOD: () => {
+                if (odFlow) {
+                  setODFlow(null);
+                  return;
+                }
+                const rows = (demo?.tables?.od ?? []).filter(
+                  (r) =>
+                    r.route_id === line.id &&
+                    r.direction === line.dir &&
+                    r.day_type === day &&
+                    (bin === "all" ||
+                      r.time_bin.slice(0, 5) ===
+                        new Date(+bin * 1800000).toISOString().slice(11, 16)),
+                );
+                const grouped = new Map();
+                for (const r of rows) {
+                  const key = r.origin_stop_id + "/" + r.dest_stop_id;
+                  const o = model.stops.get(r.origin_stop_id),
+                    d = model.stops.get(r.dest_stop_id);
+                  if (!o || !d) continue;
+                  const old = grouped.get(key) ?? {
+                    origin: o.slice(2),
+                    destination: d.slice(2),
+                    count: 0,
+                  };
+                  old.count += +r.count;
+                  grouped.set(key, old);
+                }
+                setODFlow({
+                  selectionContext: true,
+                  flows: [...grouped.values()],
+                  originName: line.name,
+                  destName: "模拟 OD",
+                  count: rows.reduce((n, r) => n + +r.count, 0),
+                  synthetic: true,
+                });
+              },
+              onBus: async () => {
+                try {
+                  onRun?.(null);
+                  const { result } = await api("runResult", {
+                    projectId: project,
+                    runId: demo.resultIds.fleet,
+                  });
+                  const o = busOverlay(result, model);
+                  setOverlay(o);
+                  setTime(o.range[0]);
+                } catch (e) {
+                  setError(e.message);
+                }
+              },
+            }),
             h(
               "ol",
               { className: "linggo-stop-list" },
@@ -592,7 +842,8 @@ export function MapView({
             ),
           ),
       ),
-    stop &&
+    mode === "bus" &&
+      stop &&
       h(
         "section",
         {
@@ -641,17 +892,64 @@ export function MapView({
           ),
         ),
       ),
+    mode === "drt" &&
+      overlay &&
+      h(DrtPanels, {
+        overlay,
+        time,
+        selection,
+        setSelection,
+        onAnalyze,
+        onLocate: (id) => {
+          const v = overlay.vehicles.find((v) => v.id === id),
+            p = v && positionAt(v, time);
+          if (p)
+            adapter.current?.setViewport([
+              p[0] - 0.01,
+              p[1] - 0.01,
+              p[0] + 0.01,
+              p[1] + 0.01,
+            ]);
+        },
+      }),
+    isDemo && h(FunctionGuide, { onGuide, onAnalyze }),
     overlay &&
       h(
         "div",
         { className: "linggo-replay-bar" },
-        h(Replay, { t, overlay, time, setTime, onClose: () => onRun?.(null) }),
+        h(Replay, {
+          t,
+          overlay,
+          time,
+          setTime,
+          onClose: () => {
+            setOverlay(null);
+            if (!data.demoScene) setMode("bus");
+            onRun?.(null);
+          },
+        }),
       ),
     h(
       "span",
       { className: "linggo-maptag" },
-      t(failure ? "map.canvas" : "map." + (engine ?? "canvas")),
+      (isDemo ? "真实线网 · 模拟运营 / 匿名既有回放 · " : "") +
+        t(failure ? "map.canvas" : "map." + (engine ?? "canvas")),
     ),
+    odFlow &&
+      h(
+        "div",
+        { className: "linggo-replay-bar", role: "status" },
+        h(
+          "span",
+          null,
+          `${odFlow.synthetic ? t("demo.synthetic") + " · " : ""}${odFlow.originName} → ${odFlow.destName} · ${odFlow.count}`,
+        ),
+        h(
+          "button",
+          { "aria-label": t("demo.closeOD"), onClick: () => setODFlow(null) },
+          "×",
+        ),
+      ),
   );
 }
 function VirtualRoutes({
@@ -733,7 +1031,9 @@ function VirtualRoutes({
     ),
   );
 }
-export const mapStyle = `
+export const mapStyle =
+  mapDemoStyle +
+  `
 @container(max-height:560px){.linggo-mapwrap:has(.linggo-stop-popup) .linggo-route-panel,.linggo-mapwrap:has(.linggo-stop-popup) .linggo-detail-panel{display:none;}}
 .linggo-mapwrap{container-type:size;position:relative;flex:1;min-height:0;isolation:isolate;overflow:hidden;background:#eef1f4;}
 .linggo-map-host,.linggo-native-map,.linggo-render-map{position:absolute;inset:0;width:100%;height:100%;}
@@ -798,4 +1098,3 @@ export const mapStyle = `
 .linggo-mapwrap:has(.linggo-stop-popup)[data-map-width=narrow] .linggo-route-panel,
 .linggo-mapwrap:has(.linggo-stop-popup)[data-map-width=narrow] .linggo-detail-panel{max-height:calc(100% - 280px);}
 `;
-

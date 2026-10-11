@@ -9,7 +9,7 @@ import { validatePackage } from "../scripts/check-package.mjs";
 const files = [
   "package.json", "lib/index.js", "lib/client.js", "cordis.patch.yml",
   "python/linggo_data/__init__.py", "python/linggo_data/__main__.py",
-  "python/linggo_data/jsonio.py",
+  "python/linggo_data/jsonio.py", "python/linggo_data/drt_v2.py", "python/linggo_data/drt_v2_core.py", "demo/bundle.json", "demo/catalog.json",
   "python/requirements.txt", "scripts/setup-python.mjs",
   ...["data-import", "network-analysis", "drt", "fleet-timetable", "custom-algorithm"].map((name) => `skills/linggo-${name}.md`),
 ];
@@ -17,7 +17,7 @@ const files = [
 test("package verification rejects missing runtime entries and unexpected files", () => {
   const pack = { files: files.map((path) => ({ path })) };
   assert.equal(validatePackage(pack), pack);
-  for (const missing of ["lib/index.js", "lib/client.js", "python/linggo_data/__main__.py", "python/linggo_data/jsonio.py", "cordis.patch.yml"]) {
+  for (const missing of ["lib/index.js", "lib/client.js", "python/linggo_data/__main__.py", "python/linggo_data/jsonio.py", "python/linggo_data/drt_v2.py", "python/linggo_data/drt_v2_core.py", "demo/bundle.json", "demo/catalog.json", "cordis.patch.yml"]) {
     assert.throws(() => validatePackage({ files: pack.files.filter((file) => file.path !== missing) }), /Missing required/);
   }
   assert.throws(() => validatePackage({ files: [...pack.files, { path: ".env" }] }), /Unexpected/);
@@ -28,7 +28,8 @@ test("standalone package checker works in paths with spaces, Chinese and an apos
   try {
     for (const file of files) {
       await mkdir(dirname(join(root, file)), { recursive: true });
-      await writeFile(join(root, file), "fixture");
+      if(file.startsWith("demo/")) await copyFile(new URL("../"+file,import.meta.url),join(root,file));
+      else await writeFile(join(root, file), "fixture");
     }
     await writeFile(join(root, "package.json"), JSON.stringify({
       name: "linggo-package-fixture", version: "1.0.0", type: "module", files,

@@ -56,8 +56,12 @@ export const colors = [
   "#9663d4",
   "#d95877",
   "#248dab",
+  "#c58b16",
+  "#35945d",
 ];
 export function routeColor(id) {
+  const demoIndex=["1009","1037","1043","1061","1063","1064","1075","1077"].indexOf(String(id));
+  if(demoIndex>=0)return colors[demoIndex];
   let n = 0;
   for (const c of String(id)) n = (n * 31 + c.charCodeAt(0)) >>> 0;
   return colors[n % colors.length];

@@ -55,6 +55,7 @@ ENTITIES = {
             "route_id": ("id", True),
             "direction": ("id", False),
             "stop_id": ("id", False),
+            "day_type": ("str", False),
             "time_bin": ("str", True),
             "boardings": ("float", True),
             "alightings": ("float", False),
@@ -64,6 +65,9 @@ ENTITIES = {
         "label": "OD",
         "key": None,
         "fields": {
+            "route_id": ("id", False),
+            "direction": ("id", False),
+            "day_type": ("str", False),
             "origin_stop_id": ("id", True),
             "dest_stop_id": ("id", True),
             "time_bin": ("str", False),
@@ -113,10 +117,27 @@ ENTITIES = {
             "lat": ("float", True),
         },
     },
+    "network_nodes": {
+        "label": "路网节点", "key": ["node_id"],
+        "fields": {"node_id": ("id", True), "lon": ("float", True), "lat": ("float", True)},
+    },
+    "network_edges": {
+        "label": "路网有向边", "key": ["edge_id"],
+        "fields": {"edge_id": ("id", True), "from_node_id": ("id", True), "to_node_id": ("id", True),
+                   "length_m": ("float", True), "travel_time_s": ("float", True),
+                   "highway": ("str", False), "geometry": ("coords", False)},
+    },
 }
 
 # Column-name synonyms used only to *suggest* a mapping; the user confirms it.
 SYNONYMS = {
+    "node_id": ["node_id", "节点编号", "节点id"],
+    "edge_id": ["edge_id", "边编号", "路段编号"],
+    "from_node_id": ["from_node_id", "起点节点", "源节点"],
+    "to_node_id": ["to_node_id", "终点节点", "目标节点"],
+    "length_m": ["length_m", "距离米", "路段长度"],
+    "travel_time_s": ["travel_time_s", "通行秒", "行驶秒"],
+    "highway": ["highway", "道路类别", "road_class"],
     "stop_id": ["stop_id", "stopid", "站点编号", "站点id", "站点代码", "站编号", "stop_code"],
     "stop_name": ["stop_name", "name_cn", "stop_cn", "站点名称", "站名", "站点", "name"],
     "route_id": ["route_id", "routeid", "线路编号", "线路id", "线路代码", "line_id", "route_code"],

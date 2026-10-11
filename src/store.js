@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, open, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-export const SCHEMA = 3;
+export const SCHEMA = 4;
 const LOCK_STALE_MS = 30_000;
 const LOCK_WAIT_MS = 10_000;
 
@@ -26,6 +26,7 @@ export function migrate(state) {
     throw Error("LingGo state was written by a newer plugin version");
   return {
     schema: SCHEMA,
+    demo: state.demo ?? null,
     projects: (state.projects ?? []).map((p) => ({ ...p })),
     handoffs: (state.handoffs ?? []).map((h) => ({
       context: { dataVersionId: null, scenarioId: null, resultRefs: [] },

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { PythonSetup } from "./demo-ui.jsx";
 const h = React.createElement;
 
 export const analysisStyle = `
@@ -12,7 +13,7 @@ export const analysisStyle = `
 .linggo-tag.ok{background:#d3f9d8;color:#2b8a3e;}
 .linggo-tag.bad{background:#ffe3e3;color:#c92a2a;}
 .linggo-replay{display:flex;gap:6px;align-items:center;font-size:12px;}
-.linggo-replay input{flex:1;}
+.linggo-root .linggo-replay input[type=range]{flex:1;min-width:40px;width:auto;margin:0}.linggo-root .linggo-replay select{flex:none;width:72px;margin:0;height:30px}.linggo-replay button{flex:none}.linggo-replay span{flex:none;min-width:60px}.linggo-replay-footer{display:flex;align-items:center;justify-content:space-between;margin-top:3px}.linggo-replay-footer button{font-size:11px;margin:0;padding:2px 6px}
 @media(max-width:1100px){.linggo-analysis{grid-template-columns:1fr;}}
 `;
 
@@ -109,7 +110,7 @@ function paramSetsOf(algorithm, form, sweep) {
 
 /* ----------------------------- Analysis tab ----------------------------- */
 
-export function AnalysisView({ t, api, project, version, jobs, refreshJobs, run, busy, onShowRun }) {
+export function AnalysisView({ t, api, project, version, jobs, refreshJobs, run, busy, onShowRun, initialAlgorithm = "", initialParams = null, initialResult = "" }) {
   const [algorithms, setAlgorithms] = useState(null);
   const [loadError, setLoadError] = useState("");
   const [proposals, setProposals] = useState([]);
@@ -120,15 +121,28 @@ export function AnalysisView({ t, api, project, version, jobs, refreshJobs, run,
   const [preview, setPreview] = useState(null); // {request, value}
   const [register, setRegister] = useState({ path: "", shown: null, reviewed: false });
   const [detail, setDetail] = useState(null);
+  const [needsPython, setNeedsPython] = useState(null);
 
-  const loadAlgorithms = () => api("algorithms", { projectId: project }).then(setAlgorithms, (e) => setLoadError(e.message));
+  const loadAlgorithms = (initialize = false) => api("algorithms", { projectId: project }).then((list) => {
+    setAlgorithms(list);
+    const initial = list.find((a) => a.id === initialAlgorithm);
+    if (initial && initialize) {
+      const values = initialForm(initial);
+      for (const [key, value] of Object.entries(initialParams ?? {}))
+        if (initial.params[key]) values[key] = initial.params[key].type === "boolean" ? value : String(value);
+      setSelected(initial.id); setForm(values);
+    }
+  }, (e) => setLoadError(e.message));
   const loadRuns = () => api("runs", { projectId: project }).then(setRuns, () => {});
   useEffect(() => {
     setAlgorithms(null);
     setPreview(null);
     setDetail(null);
-    loadAlgorithms();
+    loadAlgorithms(true);
     loadRuns();
+    let live = true;
+    if (initialResult) api("runResult", { projectId: project, runId: initialResult }).then((value) => live && setDetail(value), (e) => live && setLoadError(e.message));
+    return () => { live = false; };
   }, [project]);
   // Proposals from the presentation agent arrive while the tab is open.
   useEffect(() => {
@@ -145,7 +159,11 @@ export function AnalysisView({ t, api, project, version, jobs, refreshJobs, run,
     if (!runningRuns) loadRuns();
   }, [runningRuns, jobs.length]);
 
-  const algorithm = algorithms?.find((a) => a.id === selected);
+  const selectedAlgorithm = algorithms?.find((a) => a.id === selected);
+  const algorithm = selectedAlgorithm?.source === "builtin" && selectedAlgorithm.id === "drt_v2"
+    ? { ...selectedAlgorithm, params: { ...selectedAlgorithm.params, fleet_size: { ...selectedAlgorithm.params.fleet_size,
+      max: Math.min(selectedAlgorithm.params.fleet_size.max, version.entities?.vehicles?.rows || selectedAlgorithm.params.fleet_size.max) } } }
+    : selectedAlgorithm;
   const choose = (id) => {
     setSelected(id);
     const a = algorithms.find((x) => x.id === id);
@@ -157,6 +175,12 @@ export function AnalysisView({ t, api, project, version, jobs, refreshJobs, run,
   const doPreview = (request) =>
     run(async () => {
       setPreview(null);
+      const environment = await api("env", {});
+      if (!environment.ok || !environment.modules?.pandas || !environment.modules?.pyproj) {
+        setNeedsPython(request);
+        return;
+      }
+      setNeedsPython(null);
       const value = await api("previewRun", { projectId: project, ...request });
       setPreview({ request, value });
     });
@@ -182,6 +206,7 @@ export function AnalysisView({ t, api, project, version, jobs, refreshJobs, run,
   const left = h(
     "section",
     null,
+    needsPython && h(PythonSetup, { t, api, project, onReady: () => doPreview(needsPython) }),
     proposals.length > 0 &&
       h(
         React.Fragment,
@@ -310,7 +335,7 @@ export function AnalysisView({ t, api, project, version, jobs, refreshJobs, run,
               "tr",
               { key: r.id, style: { cursor: "pointer", fontWeight: detail?.run.id === r.id ? 600 : undefined }, onClick: () => openRun(r.id) },
               h("td", null, new Date(r.createdAt).toLocaleString(undefined, { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })),
-              h("td", null, r.algorithmName, r.synthetic && h("span", { className: "linggo-tag" }, t("an.synthetic"))),
+              h("td", null, r.algorithmName, r.synthetic && h("span", { className: "linggo-tag" }, t(r.provenance?.synthetic ? "demo.synthetic" : "an.synthetic"))),
               h("td", null, (KEY_KPIS[r.kind] ?? []).slice(0, 3).map((k) => `${label(t, "kpi." + k, k)} ${fmtValue(k, r.summary?.[k])}`).join("；")),
               h("td", null, h("span", { className: `linggo-tag ${r.validation?.ok ? "ok" : "bad"}` }, r.validation?.checked === false ? t("an.unchecked") : r.validation?.ok ? t("an.valid") : t("an.invalid", { n: String(r.validation?.count ?? "?") }))),
             ),
@@ -330,7 +355,7 @@ function ResultDetail({ t, detail, onShowRun }) {
     "div",
     { className: "linggo-card", style: { padding: 8 } },
     h("strong", null, run.algorithmName),
-    run.synthetic && h("span", { className: "linggo-tag" }, t("an.synthetic")),
+    run.synthetic && h("span", { className: "linggo-tag" }, t(run.provenance?.synthetic ? "demo.synthetic" : "an.synthetic")),
     h("div", null, h("small", null, t("an.runMeta", { version: run.versionId.slice(0, 8), id: run.id }))),
     h("div", { className: "linggo-kpis" }, ...kpis.map(([k, v]) => h("div", { key: k }, label(t, "kpi." + k, k), h("b", null, fmtValue(k, v))))),
     (run.kind === "drt" || run.kind === "fleet") && h("button", { className: "primary", onClick: () => onShowRun(run.id) }, t("an.showOnMap")),
@@ -382,132 +407,36 @@ function ResultDetail({ t, detail, onShowRun }) {
 
 /* ----------------------------- Map overlay and replay ----------------------------- */
 
-function km(a, b) {
-  const r = Math.PI / 180, dLat = (b[1] - a[1]) * r, dLon = (b[0] - a[0]) * r;
-  const s = Math.sin(dLat / 2) ** 2 + Math.cos(a[1] * r) * Math.cos(b[1] * r) * Math.sin(dLon / 2) ** 2;
-  return 12742 * Math.asin(Math.sqrt(s));
-}
-
-/** Timed vehicle tracks for replay: DRT from stop times, fleet from trip terminals. */
-export function buildOverlay(run, result) {
-  const vehicles = [];
-  let t0 = Infinity, t1 = -Infinity;
-  if (run.kind === "drt") {
-    const speed = result.params?.speed_kmh ?? 25, detour = result.params?.detour_factor ?? 1.3;
-    for (const v of result.vehicles) {
-      if (!v.stops.length) continue;
-      const first = v.stops[0];
-      const leave = first.arrive - (km(v.start, [first.lon, first.lat]) * detour * 3600) / speed;
-      const track = [{ t: leave, p: v.start }];
-      for (const s of v.stops) track.push({ t: s.arrive, p: [s.lon, s.lat] }, { t: s.depart, p: [s.lon, s.lat] });
-      vehicles.push({ id: v.vehicle_id, track, hold: true });
-    }
-  } else if (run.kind === "fleet") {
-    for (const b of result.blocks) {
-      const track = [];
-      for (const x of b.trips) track.push({ t: x.start, p: x.from }, { t: x.end, p: x.to });
-      vehicles.push({ id: b.vehicle_id, track, hold: false });
-    }
-  }
-  for (const v of vehicles) {
-    t0 = Math.min(t0, v.track[0].t);
-    t1 = Math.max(t1, v.track.at(-1).t);
-  }
-  const requests = run.kind === "drt" ? result.requests.map((r) => ({ o: r.o, served: r.served, t: r.request_time })) : [];
-  return { kind: run.kind, name: run.algorithmName, synthetic: run.synthetic, vehicles, requests, range: vehicles.length ? [t0, t1] : null };
-}
-
-/** Position at time t, or null when the vehicle is not in service. */
-export function positionAt(v, t) {
-  const tr = v.track;
-  if (t < tr[0].t) return v.hold ? tr[0].p : null;
-  if (t >= tr.at(-1).t) return v.hold ? tr.at(-1).p : null;
-  let lo = 0, hi = tr.length - 1;
-  while (hi - lo > 1) {
-    const mid = (lo + hi) >> 1;
-    if (tr[mid].t <= t) lo = mid;
-    else hi = mid;
-  }
-  const a = tr[lo], b = tr[hi], f = b.t > a.t ? (t - a.t) / (b.t - a.t) : 0;
-  return [a.p[0] + (b.p[0] - a.p[0]) * f, a.p[1] + (b.p[1] - a.p[1]) * f];
-}
-
-export function overlayBox(overlay) {
-  const pts = overlay.vehicles.flatMap((v) => v.track.map((x) => x.p)).concat(overlay.requests.map((r) => r.o));
-  if (!pts.length) return null;
-  return [Math.min(...pts.map((p) => p[0])), Math.min(...pts.map((p) => p[1])), Math.max(...pts.map((p) => p[0])), Math.max(...pts.map((p) => p[1]))];
-}
-
-const PALETTE = ["#3c6df0", "#e8590c", "#2b8a3e", "#ae3ec9", "#1098ad", "#f08c00", "#c2255c", "#5c940d"];
-export const vehicleColor = (i) => PALETTE[i % PALETTE.length];
-
-/** Draw the overlay onto a canvas context with a projection px([lon, lat]) -> [x, y]. */
-export function drawOverlay(g, px, overlay, time) {
-  if (overlay.kind === "drt") {
-    g.lineWidth = 1.5;
-    g.globalAlpha = 0.45;
-    overlay.vehicles.slice(0, 300).forEach((v, i) => {
-      g.strokeStyle = vehicleColor(i);
-      g.beginPath();
-      v.track.forEach((x, k) => {
-        const [sx, sy] = px(x.p);
-        k ? g.lineTo(sx, sy) : g.moveTo(sx, sy);
-      });
-      g.stroke();
-    });
-    g.globalAlpha = 1;
-    for (const r of overlay.requests) {
-      if (r.served || r.t > time) continue;
-      const [x, y] = px(r.o);
-      g.strokeStyle = "#c92a2a";
-      g.lineWidth = 1.5;
-      g.beginPath();
-      g.moveTo(x - 3, y - 3);
-      g.lineTo(x + 3, y + 3);
-      g.moveTo(x + 3, y - 3);
-      g.lineTo(x - 3, y + 3);
-      g.stroke();
-    }
-  }
-  overlay.vehicles.forEach((v, i) => {
-    const p = positionAt(v, time);
-    if (!p) return;
-    const [x, y] = px(p);
-    g.fillStyle = vehicleColor(i);
-    g.strokeStyle = "#fff";
-    g.lineWidth = 1.5;
-    g.beginPath();
-    g.arc(x, y, 5, 0, Math.PI * 2);
-    g.fill();
-    g.stroke();
-  });
-}
+export { buildOverlay, positionAt, overlayBox, drawOverlay, drawOD, vehicleColor } from "./map-replay.js";
+import { positionAt } from "./map-replay.js";
 
 /** Time slider and play button; the full range plays in about 40 seconds. */
 export function Replay({ t, overlay, time, setTime, onClose }) {
   const [playing, setPlaying] = useState(false);
+  const [speed, setSpeed] = useState(1);
   const [t0, t1] = overlay.range ?? [0, 0];
   useEffect(() => {
     if (!playing) return;
-    const step = Math.max((t1 - t0) / 400, 1);
+    const step = speed * .1;
     const timer = setInterval(() => setTime((v) => (v + step >= t1 ? (setPlaying(false), t1) : v + step)), 100);
     return () => clearInterval(timer);
-  }, [playing, t0, t1]);
+  }, [playing, t0, t1, speed]);
   const active = useMemo(() => overlay.vehicles.filter((v) => positionAt(v, time) && (!v.hold || (time >= v.track[0].t && time <= v.track.at(-1).t))).length, [overlay, time]);
   return h(
     "div",
     { className: "linggo-card", style: { padding: 6 } },
-    h("small", null, overlay.name, overlay.synthetic && h("span", { className: "linggo-tag" }, t("an.synthetic"))),
+    h("small", null, overlay.name, overlay.synthetic && h("span", { className: "linggo-tag" }, t(overlay.demo ? "demo.synthetic" : "an.synthetic"))),
     overlay.range
       ? h(
           "div",
           { className: "linggo-replay" },
           h("button", { "aria-label": playing ? t("map.pause") : t("map.play"), onClick: () => (time >= t1 && setTime(t0), setPlaying(!playing)) }, playing ? "❚❚" : "▶"),
-          h("input", { type: "range", "aria-label": t("map.time"), min: t0, max: t1, step: 10, value: time, onChange: (e) => setTime(Number(e.target.value)) }),
+          h("input", { type: "range", "aria-label": t("map.time"), min: t0, max: t1, step: 1, value: time, onChange: (e) => setTime(Number(e.target.value)) }),
           h("span", null, clock(time)),
+          h("select", { "aria-label": "回放倍速", value: speed, onChange: (e) => setSpeed(Number(e.target.value)) }, ...[1,5,10,30,60].map((v) => h("option", { key: v, value: v }, v + "×"))),
         )
       : h("small", null, t("map.noTracks")),
-    h("small", null, t("map.activeVehicles", { n: String(active), total: String(overlay.vehicles.length) })),
-    h("button", { onClick: onClose }, t("map.closeRun")),
+    h("div", {className:"linggo-replay-footer"},h("small", null, t("map.activeVehicles", { n: String(active), total: String(overlay.vehicles.length) })),
+    h("button", { onClick: onClose }, t("map.closeRun"))),
   );
 }

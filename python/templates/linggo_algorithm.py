@@ -60,7 +60,7 @@ def run(inputs, params, ctx):
         t = (r.when - day0).total_seconds()
         o, d = (float(r.o_lon), float(r.o_lat)), (float(r.d_lon), float(r.d_lat))
         direct = ctx.travel_s(o, d, speed, detour)
-        row = {"request_id": r.request_id, "request_time": t, "passengers": 1, "direct_min": direct / 60}
+        row = {"request_id": r.request_id, "request_time": t, "passengers": 1, "direct_min": direct / 60, "o": list(o), "d": list(d)}
         vid = min(ids, key=lambda v: max(free[v][1], t) + ctx.travel_s(free[v][0], o, speed, detour))
         pos, ready = free[vid]
         pickup = max(ready, t) + ctx.travel_s(pos, o, speed, detour)

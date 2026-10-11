@@ -123,6 +123,8 @@ def build(req, progress):
         if os.path.exists(p):
             df = pd.read_csv(p, dtype=str, keep_default_na=False, usecols=lambda c: True)
             entities[name] = {"rows": len(df), "columns": list(df.columns)}
+            if name == "routes":
+                entities[name]["uniqueCount"] = df["route_id"].nunique()
     result = {
         "schema": 1,
         "createdAt": datetime.now(timezone.utc).isoformat(),
@@ -130,6 +132,7 @@ def build(req, progress):
         "entities": entities,
         "sources": manifest.get("sources", []) + [_source_record(source, mapping, table_name)],
         "report": {"imports": reports, "warnings": warnings},
+        "provenance": manifest.get("provenance", {}),
     }
     progress(0.96, "生成地图数据")
     m = map_data(staging)
@@ -157,7 +160,9 @@ def _references(d):
     warnings = []
     stops = ids("stops", "stop_id")
     routes = ids("routes", "route_id")
+    nodes = ids("network_nodes", "node_id")
     checks = [("route_stops", "stop_id", stops, "站点"), ("trips", "route_id", routes, "线路"), ("ridership", "route_id", routes, "线路"), ("od", "origin_stop_id", stops, "站点"), ("od", "dest_stop_id", stops, "站点")]
+    checks += [("network_edges", "from_node_id", nodes, "路网节点"), ("network_edges", "to_node_id", nodes, "路网节点")]
     for name, col, known, label in checks:
         if known is None:
             continue

@@ -1,12 +1,44 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /** Python package shipped next to lib/ (and src/ during development). */
 export const PYTHON_DIR = fileURLToPath(new URL("../python", import.meta.url));
 
 const ENV_KEEP = ["PATH", "HOME", "USERPROFILE", "LANG", "LC_ALL", "TMPDIR", "TEMP", "TMP", "SYSTEMROOT", "PROJ_DATA", "PROJ_LIB"];
+
+/** Explicit user action only: fixed package script, argument array, credential-free environment. */
+export function setupPythonEnvironment({ root, python, signal, onProgress }) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(signal.reason ?? Error("Cancelled"));
+    const env = { DSH_HOME: dirname(root) };
+    for (const key of ENV_KEEP) if (process.env[key]) env[key] = process.env[key];
+    const script = fileURLToPath(new URL("../scripts/setup-python.mjs", import.meta.url));
+    const child = spawn(process.execPath, [script, ...(python ? ["--python", python] : [])], { env, stdio: ["ignore", "pipe", "pipe"], windowsHide: true, detached: process.platform !== "win32" });
+    let tail = "";
+    const abort = () => {
+      if (process.platform === "win32") spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true }).on("error", () => child.kill());
+      else { try { process.kill(-child.pid, "SIGTERM"); } catch {} }
+      reject(signal.reason ?? Error("Cancelled"));
+    };
+    signal?.addEventListener("abort", abort, { once: true });
+    if (signal?.aborted) abort();
+    const receive = (value) => {
+      tail = (tail + value.toString()).slice(-2000);
+      onProgress?.(.5, "正在准备隔离 Python 环境与数据依赖…");
+    };
+    child.stdout.on("data", receive);
+    child.stderr.on("data", receive);
+    child.on("error", reject);
+    child.on("close", (code) => {
+      signal?.removeEventListener("abort", abort);
+      if (signal?.aborted) return;
+      if (code === 0) resolve({ ready: true });
+      else reject(Error("Python 初始化失败。请安装 Python 3.10+ 并检查网络，或在设置中选择已有环境。\n" + tail.replace(/https?:\/\/\S+/g, "[package registry]").slice(-600)));
+    });
+  });
+}
 
 /** The plugin venv under the LingGo root wins, then a configured path, then the system interpreter. */
 export function resolvePython(root, configured) {

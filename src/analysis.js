@@ -9,6 +9,7 @@ const PROPOSAL_HISTORY = 50;
 const ENTITY_LABELS = {
   stops: "站点", routes: "线路与方向", route_stops: "线路站序", trips: "时刻表", ridership: "分时段客流",
   od: "OD", demand: "逐笔需求", gps: "车辆 GPS", vehicles: "车辆", depots: "车场",
+  network_nodes: "路网节点", network_edges: "路网有向边",
 };
 const USER_CODE_WARNING =
   "这是用户注册的 Python 代码：接口与结果校验不等于代码安全，它将以你的用户权限在本机运行，没有沙箱。";
@@ -43,12 +44,13 @@ export function cleanParams(meta, input) {
  * Algorithms, confirmed runs and results. The presentation agent can list algorithms, read results
  * and propose a run; only the user starts one, from a preview whose token the Host checks.
  */
-export function createAnalysis({ store, jobs, worker, scopeOf, requireProject }) {
+export function createAnalysis({ store, jobs, worker, scopeOf, requireProject, catalog }) {
   const secret = randomBytes(32);
   const proposals = [];
   let builtins;
 
   const listBuiltins = async () => {
+    if (catalog) return catalog;
     builtins ??= worker({ cmd: "algorithms" }, { timeoutMs: 60_000 }).catch((error) => {
       builtins = undefined;
       throw error;
@@ -90,9 +92,12 @@ export function createAnalysis({ store, jobs, worker, scopeOf, requireProject })
     const paramSets = sets.map((p) => cleanParams(algorithm, p));
     const inputs = algorithm.inputs.map((i) => ({ ...i, label: ENTITY_LABELS[i.entity] ?? i.entity, rows: version.entities?.[i.entity]?.rows ?? 0 }));
     const blocking = inputs.filter((i) => i.required && !i.rows).map((i) => `缺少必需数据：${i.label}`);
+    if (algorithm.source === "builtin" && algorithm.id === "drt_v2" && paramSets.some((p) => p.fleet_size > (version.entities?.vehicles?.rows ?? 0)))
+      blocking.push("启用车辆数超过车辆表的可用数量");
     const warnings = [];
     if (algorithm.source === "user") warnings.push(USER_CODE_WARNING);
     if (paramSets.some((p) => p.demand_source === "synthetic")) warnings.push("需求为按种子生成的实验数据，结果会标记为实验，不代表观测需求。");
+    if (version.provenance?.synthetic || version.provenance?.demoVersion === 2) warnings.push("当前数据包含合成演示，计算结果仍为演示结果，不代表观测需求。");
     return { project, version, algorithm, paramSets, inputs, blocking, warnings };
   };
 
@@ -138,6 +143,7 @@ export function createAnalysis({ store, jobs, worker, scopeOf, requireProject })
               summary: value.summary,
               validation: value.validation,
               synthetic: value.synthetic,
+              provenance: p.version.provenance?.demoVersion === 2 ? { ...p.version.provenance, origin: "simulated-operations", synthetic: true } : p.version.provenance ?? null,
               batch: p.paramSets.length > 1 ? { index, size: p.paramSets.length } : null,
               proposalId: proposal?.id ?? null,
               createdAt: new Date().toISOString(),
@@ -297,7 +303,7 @@ export function createAnalysis({ store, jobs, worker, scopeOf, requireProject })
           return {
             runs: own.slice(-20).reverse().map((r) => ({
               runId: r.id, algorithm: r.algorithmName, kind: r.kind, createdAt: r.createdAt, dataVersionId: r.versionId,
-              synthetic: r.synthetic, valid: r.validation?.ok, summary: r.summary, params: r.params,
+              synthetic: r.synthetic, provenance: r.provenance, statisticsScope: r.statisticsScope, valid: r.validation?.ok, summary: r.summary, params: r.params,
             })),
           };
         const run = own.find((r) => r.id === args.run_id);
@@ -312,7 +318,7 @@ export function createAnalysis({ store, jobs, worker, scopeOf, requireProject })
                 ? { gaps: result.gaps?.slice(0, 20), headways: result.headways?.slice(0, 30) }
                 : {};
         return {
-          runId: run.id, algorithm: run.algorithmName, kind: run.kind, dataVersionId: run.versionId, synthetic: run.synthetic,
+          runId: run.id, algorithm: run.algorithmName, kind: run.kind, dataVersionId: run.versionId, synthetic: run.synthetic, provenance: run.provenance, statisticsScope: run.statisticsScope,
           params: run.params, summary: result.summary, assumptions: result.assumptions,
           validation: { ...result.validation, violations: result.validation?.violations?.slice(0, 10) }, ...detail,
         };

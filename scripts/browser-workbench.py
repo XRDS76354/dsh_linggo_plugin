@@ -121,7 +121,7 @@ with sync_playwright() as pw:
   time.sleep(.1)
  assert status['status']=='done',status
  page.get_by_role('button',name='分析',exact=True).click();page.locator('.linggo-analysis > section').last.locator('tbody tr').first.click();page.get_by_role('button',name='在地图上回放',exact=True).first.click();page.locator('.linggo-replay-bar').wait_for();slider=page.get_by_label('回放时间',exact=True);slider.wait_for()
- slider.press('End');page.screenshot(path=str(out/'replay.png'));page.get_by_role('button',name='关闭结果图层',exact=True).click();page.locator('.linggo-replay-bar').wait_for(state='detached')
+ slider.press('End');page.screenshot(path=str(out/'replay.png'));page.get_by_role('button',name='关闭结果图层',exact=True).click();page.locator('.linggo-replay-bar').wait_for(state='detached');page.get_by_label('搜索线路、起点或终点',exact=True).fill('599');page.get_by_role('button',name='Test 599',exact=False).click();page.get_by_label('线路详情',exact=True).wait_for()
  assert not errors,errors
  print('Workbench: 600 real layers/list rows, search, details, visibility, resize, persistence, maximize, responsive widths and fallback passed')
  browser.close()

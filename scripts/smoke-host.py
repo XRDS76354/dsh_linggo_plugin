@@ -3,7 +3,7 @@ import argparse, http.cookiejar, json, re, urllib.request, urllib.error
 p=argparse.ArgumentParser();p.add_argument('log');p.add_argument('--removed',action='store_true');a=p.parse_args()
 text=open(a.log).read()
 assert 'did not activate' not in text, 'Host plugin activation failed'
-url=re.search(r'http://127\.0\.0\.1:\d+/\?token=\S+',text).group(0)
+url=re.findall(r'http://127\.0\.0\.1:\d+/\?token=\S+',text)[-1]
 base=url.split('/?')[0]
 opener=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
 html=opener.open(url).read().decode()

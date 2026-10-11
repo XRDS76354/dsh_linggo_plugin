@@ -19,3 +19,5 @@ Extension points used: `shell.overlay`, `main`, `sidebar.panellist`, `uiWorkspac
 Workbench-only CSS adapts the stock frame through the `[data-rightbar-col]` anchor, the frame's child order (sidebar, center, rightbar) and `[data-side]` drag handles. These selectors must be checked visually on every DSH upgrade. The stock Chat implementation is not copied.
 
 UI/map release `0.1.1-alpha.1`: own layout preferences, resizable/collapsible panes, retained native conversation, provider adapters and virtual route list. See [UI upgrade record](docs/workbench-ui.md) for exact viewport/provider coverage and remaining limits. Native desktop, Windows/Linux and future DSH versions are not newly claimed.
+
+真实线网地图演示和 DRT v2 的两版 tarball / Web 回归记录见 [兼容文档](docs/compatibility.md#2026-10-11-真实线网地图演示回归)。无模型凭据、地图密钥和 Python 时预设仍可用；原生桌面窗口及 Windows/Linux 本轮未重新验收。

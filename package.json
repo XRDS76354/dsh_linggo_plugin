@@ -38,7 +38,9 @@
     "COMPATIBILITY.md",
     "docs/compatibility.md",
     "THIRD_PARTY_NOTICES.md",
-    "docs/workbench-ui.md"
+    "docs/workbench-ui.md",
+    "demo/*.json",
+    "docs/compose/spec/demo-minimal-drt-v2.md"
   ],
   "scripts": {
     "build": "node scripts/build.mjs",
@@ -48,7 +50,9 @@
     "pack:release": "node scripts/pack-release.mjs",
     "test:python": "node scripts/setup-python.mjs --run-tests",
     "setup:python": "node scripts/setup-python.mjs",
-    "test:compat": "node scripts/test-compat.mjs"
+    "test:compat": "node scripts/test-compat.mjs",
+    "demo:generate": "python3 scripts/generate-demo.py",
+    "demo:check": "python3 scripts/generate-demo.py --check"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "*",
@@ -59,7 +63,8 @@
     "@deepseek-ai/dsh-client-ui-layout": "0.2.0-rc.2 || 0.2.1-alpha.1",
     "@deepseek-ai/dsh-client-ui-slots": "0.2.0-rc.2 || 0.2.1-alpha.1",
     "@deepseek-ai/dsh-client-ui-workspace": "0.2.0-rc.2 || 0.2.1-alpha.1",
-    "@deepseek-ai/dsh-tools": "0.2.0-rc.2 || 0.2.1-alpha.1"
+    "@deepseek-ai/dsh-tools": "0.2.0-rc.2 || 0.2.1-alpha.1",
+    "@deepseek-ai/dsh-llm": "0.2.0-rc.2 || 0.2.1-alpha.1"
   },
   "devDependencies": {
     "@baidumap/jsapi-loader": "1.0.0",
@@ -92,6 +97,9 @@
       "optional": true
     },
     "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-llm": {
       "optional": true
     }
   }

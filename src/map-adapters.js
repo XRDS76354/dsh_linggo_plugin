@@ -9,7 +9,7 @@ import {
   STOP_RADIUS,
   STOP_RADIUS_SELECTED,
 } from "./map-model.js";
-import { drawOverlay } from "./analysis.jsx";
+import { drawOverlay, drawOD, hitVehicle } from "./map-replay.js";
 let amapLoad, amapKey, amapCode, baiduKey;
 function loadAmap(settings) {
   if (
@@ -57,14 +57,30 @@ function loadAmap(settings) {
 // that flattens roads/buildings into the land color and the map looks blank.
 // Style land only, then give roads/boundaries/labels their own tokens.
 const lightStyle = [
-  { featureType: "land", elementType: "geometry", stylers: { color: "#e6eaed" } },
-  { featureType: "water", elementType: "geometry", stylers: { color: "#b7d2e0" } },
-  { featureType: "green", elementType: "geometry", stylers: { color: "#c5d8bf" } },
-  { featureType: "building", elementType: "geometry", stylers: { color: "#d5dce2" } },
+  {
+    featureType: "land",
+    elementType: "geometry",
+    stylers: { color: "#e6eaed" },
+  },
+  {
+    featureType: "water",
+    elementType: "geometry",
+    stylers: { color: "#b7d2e0" },
+  },
+  {
+    featureType: "green",
+    elementType: "geometry",
+    stylers: { color: "#c5d8bf" },
+  },
+  {
+    featureType: "building",
+    elementType: "geometry",
+    stylers: { color: "#d5dce2" },
+  },
   {
     featureType: "highway",
     elementType: "geometry",
-    stylers: { color: "#ffffff", "visibility": "on" },
+    stylers: { color: "#ffffff", visibility: "on" },
   },
   {
     featureType: "highway",
@@ -74,7 +90,7 @@ const lightStyle = [
   {
     featureType: "arterial",
     elementType: "geometry",
-    stylers: { color: "#f7f8f9", "visibility": "on" },
+    stylers: { color: "#f7f8f9", visibility: "on" },
   },
   {
     featureType: "arterial",
@@ -84,7 +100,7 @@ const lightStyle = [
   {
     featureType: "local",
     elementType: "geometry",
-    stylers: { color: "#f2f4f5", "visibility": "on" },
+    stylers: { color: "#f2f4f5", visibility: "on" },
   },
   {
     featureType: "local",
@@ -94,12 +110,12 @@ const lightStyle = [
   {
     featureType: "railway",
     elementType: "geometry",
-    stylers: { color: "#c5ccd2", "visibility": "on" },
+    stylers: { color: "#c5ccd2", visibility: "on" },
   },
   {
     featureType: "boundary",
     elementType: "geometry",
-    stylers: { color: "#9aa7b2", "visibility": "on" },
+    stylers: { color: "#9aa7b2", visibility: "on" },
   },
   {
     featureType: "boundary",
@@ -114,7 +130,7 @@ const lightStyle = [
   {
     featureType: "all",
     elementType: "labels.text.fill",
-    stylers: { color: "#3d4a55", "visibility": "on" },
+    stylers: { color: "#3d4a55", visibility: "on" },
   },
   {
     featureType: "all",
@@ -124,11 +140,19 @@ const lightStyle = [
   {
     featureType: "all",
     elementType: "labels.icon",
-    stylers: { "visibility": "on" },
+    stylers: { visibility: "on" },
   },
   // Keep district/city names; drop only noisy POI icons.
-  { featureType: "poi", elementType: "labels.icon", stylers: { "visibility": "off" } },
-  { featureType: "poi", elementType: "labels.text.fill", stylers: { color: "#6b7782" } },
+  {
+    featureType: "poi",
+    elementType: "labels.icon",
+    stylers: { visibility: "off" },
+  },
+  {
+    featureType: "poi",
+    elementType: "labels.text.fill",
+    stylers: { color: "#6b7782" },
+  },
 ];
 // Each adapter owns its map, listeners and overlays. The caller owns geographic state.
 export async function createMapAdapter(
@@ -243,6 +267,19 @@ export async function createMapAdapter(
   function setViewport(box, fit = true) {
     if (!box) return;
     initial = true;
+    const demo = scene?.demo;
+    const left = demo
+      ? width() >= 900 && scene?.visible?.size
+        ? 312
+        : 24
+      : 40;
+    const right = demo
+      ? scene?.selection?.routeId || scene?.overlay?.kind === "drt"
+        ? 330
+        : 24
+      : 40;
+    const top = demo ? 80 : 40,
+      bottom = demo ? (scene?.overlay ? 220 : 80) : 40;
     if (engine === "canvas") {
       view = {
         cx: (box[0] + box[2]) / 2,
@@ -250,17 +287,30 @@ export async function createMapAdapter(
         k: Math.cos(((box[1] + box[3]) * Math.PI) / 360),
         s: 1,
       };
+      const availableW = fit
+          ? demo
+            ? Math.max(160, width() - left - right)
+            : width() * 0.84
+          : width(),
+        availableH = fit
+          ? demo
+            ? Math.max(160, height() - top - bottom)
+            : height() * 0.84
+          : height();
       view.s = Math.min(
-        (width() * (fit ? 0.84 : 1)) /
-          Math.max((box[2] - box[0]) * view.k, 1e-6),
-        (height() * (fit ? 0.84 : 1)) / Math.max(box[3] - box[1], 1e-6),
+        availableW / Math.max((box[2] - box[0]) * view.k, 1e-6),
+        availableH / Math.max(box[3] - box[1], 1e-6),
         2e6,
       );
+      if (fit && demo) {
+        view.cx += (right - left) / 2 / (view.s * view.k);
+        view.cy += (top - bottom) / 2 / view.s;
+      }
     } else if (engine === "amap") {
       map.setBounds(
         new SDK.Bounds(gcj(box.slice(0, 2)), gcj(box.slice(2, 4))),
         false,
-        fit ? [40, 40, 40, 40] : [0, 0, 0, 0],
+        fit ? [top, right, bottom, left] : [0, 0, 0, 0],
       );
     } else
       map.setViewport(
@@ -269,7 +319,7 @@ export async function createMapAdapter(
           new SDK.Point(...gcj(box.slice(2, 4))),
         ],
         {
-          margins: fit ? [40, 40, 40, 40] : [0, 0, 0, 0],
+          margins: fit ? [top, right, bottom, left] : [0, 0, 0, 0],
           enableAnimation: false,
         },
       );
@@ -336,11 +386,27 @@ export async function createMapAdapter(
           l.id === scene.selection.routeId &&
           (scene.selection.direction == null ||
             scene.selection.direction === l.dir);
-        const color = routeColor(l.id),
+        const returnDirection = l.dir === "1",
+          baseColor = routeColor(l.id);
+        const color = returnDirection
+            ? baseColor.replace(
+                /#[0-9a-f]{6}/i,
+                (c) =>
+                  "#" +
+                  [1, 3, 5]
+                    .map((i) =>
+                      Math.round(parseInt(c.slice(i, i + 2), 16) * 0.78)
+                        .toString(16)
+                        .padStart(2, "0"),
+                    )
+                    .join(""),
+              )
+            : baseColor,
           weight = selected ? 4 : 1.7,
           opacity = scene.selection.routeId ? (selected ? 1 : 0.25) : 0.65;
         if (engine === "canvas") {
           g.strokeStyle = color;
+          g.setLineDash(returnDirection ? [8, 5] : []);
           g.lineWidth = weight;
           g.globalAlpha = opacity;
           g.beginPath();
@@ -349,6 +415,24 @@ export async function createMapAdapter(
             i ? g.lineTo(x, y) : g.moveTo(x, y);
           });
           g.stroke();
+          g.setLineDash([]);
+          if (selected)
+            for (let i = 6; i < l.path.length; i += 12) {
+              const a = project(l.path[i - 1]),
+                b = project(l.path[i]),
+                angle = Math.atan2(b[1] - a[1], b[0] - a[0]);
+              g.save();
+              g.translate(...b);
+              g.rotate(angle);
+              g.strokeStyle = "#fff";
+              g.lineWidth = 1.5;
+              g.beginPath();
+              g.moveTo(-5, -3);
+              g.lineTo(0, 0);
+              g.lineTo(-5, 3);
+              g.stroke();
+              g.restore();
+            }
           g.globalAlpha = 1;
         } else {
           const path = l.path.map(gcj),
@@ -356,6 +440,8 @@ export async function createMapAdapter(
               engine === "amap"
                 ? new SDK.Polyline({
                     path,
+                    strokeStyle: returnDirection ? "dashed" : "solid",
+                    showDir: selected,
                     strokeColor: color,
                     strokeWeight: weight,
                     strokeOpacity: opacity,
@@ -364,6 +450,7 @@ export async function createMapAdapter(
                 : new SDK.Polyline(
                     path.map((p) => new SDK.Point(...p)),
                     {
+                      strokeStyle: returnDirection ? "dashed" : "solid",
                       strokeColor: color,
                       strokeWeight: weight,
                       strokeOpacity: opacity,
@@ -380,8 +467,17 @@ export async function createMapAdapter(
         const [x, y] = project(st.point),
           r = st.selected ? STOP_RADIUS_SELECTED : STOP_RADIUS,
           color = st.selected ? "#4275dc" : "#71808a";
+        const selectedLine = scene.model.lines.find(
+          (l) =>
+            l.id === scene.selection.routeId &&
+            l.dir === scene.selection.direction,
+        );
+        const solidStop =
+          selectedLine?.dir === "0" &&
+          st.ids.some((id) => selectedLine.stops.includes(id));
+        const fill = solidStop ? routeColor(selectedLine.id) : "#fff";
         if (engine === "canvas") {
-          g.fillStyle = "#fff";
+          g.fillStyle = fill;
           g.strokeStyle = color;
           g.lineWidth = 1.25;
           g.beginPath();
@@ -395,7 +491,7 @@ export async function createMapAdapter(
             o = new SDK.CircleMarker({
               center: p,
               radius: r,
-              fillColor: "#fff",
+              fillColor: fill,
               strokeColor: color,
               strokeWeight: 1.25,
               fillOpacity: 1,
@@ -406,7 +502,7 @@ export async function createMapAdapter(
             const px = map.pixelToPoint(new SDK.Pixel(x + r, y));
             const radius = map.getDistance(new SDK.Point(...p), px);
             o = new SDK.Circle(new SDK.Point(...p), radius, {
-              fillColor: "#fff",
+              fillColor: fill,
               fillOpacity: 1,
               strokeColor: color,
               strokeWeight: 1.25,
@@ -424,7 +520,32 @@ export async function createMapAdapter(
         viewport,
       };
     }
-    if (scene.overlay) drawOverlay(g, project, scene.overlay, scene.time);
+    if (engine !== "canvas")
+      for (const l of rendered.lines.filter(
+        (l) =>
+          l.id === scene.selection.routeId &&
+          l.dir === scene.selection.direction,
+      )) {
+        g.strokeStyle = "#fff";
+        g.lineWidth = 1.5;
+        for (let i = 6; i < l.path.length; i += 12) {
+          const a = project(l.path[i - 1]),
+            b = project(l.path[i]),
+            angle = Math.atan2(b[1] - a[1], b[0] - a[0]);
+          g.save();
+          g.translate(...b);
+          g.rotate(angle);
+          g.beginPath();
+          g.moveTo(-5, -3);
+          g.lineTo(0, 0);
+          g.lineTo(-5, 3);
+          g.stroke();
+          g.restore();
+        }
+      }
+    if (scene.overlay)
+      drawOverlay(g, project, scene.overlay, scene.time, scene.selection);
+    drawOD(g, project, scene.odFlow);
     onChange?.();
   }
   function schedule() {
@@ -455,6 +576,11 @@ export async function createMapAdapter(
     if (d.moved) return;
     const rect = canvas.getBoundingClientRect(),
       p = [e.clientX - rect.left, e.clientY - rect.top];
+    const vehicle = hitVehicle(p, project, scene.overlay, scene.time);
+    if (vehicle) {
+      onSelect({ vehicleId: vehicle.id });
+      return;
+    }
     const st = rendered?.stops.find(
       (s) => Math.hypot(...project(s.point).map((n, i) => n - p[i])) < 9,
     );
@@ -481,6 +607,17 @@ export async function createMapAdapter(
   canvas.addEventListener("pointercancel", () => (drag = null));
   canvas.addEventListener("wheel", wheel, { passive: false });
   // Keep map-level listeners separate from overlay listeners rebuilt by render.
+  const nativeVehicleClick = (e) => {
+    if (engine === "canvas") return;
+    const r = host.getBoundingClientRect(),
+      p = [e.clientX - r.left, e.clientY - r.top];
+    const v = hitVehicle(p, project, scene?.overlay, scene?.time);
+    if (v) {
+      onSelect({ vehicleId: v.id });
+      e.stopPropagation();
+    }
+  };
+  host.addEventListener("click", nativeVehicleClick, true);
   const mapListeners = [];
   if (map) {
     for (const event of ["moveend", "zoomend", "resize"]) {
@@ -503,7 +640,9 @@ export async function createMapAdapter(
           if (disposed || !scene) return;
           const g = canvas.getContext("2d");
           g.clearRect(0, 0, width(), height());
-          if (scene.overlay) drawOverlay(g, project, scene.overlay, scene.time);
+          if (scene.overlay)
+            drawOverlay(g, project, scene.overlay, scene.time, scene.selection);
+          drawOD(g, project, scene.odFlow);
           onChange?.();
         });
       };
@@ -539,6 +678,7 @@ export async function createMapAdapter(
         mapListeners.forEach((fn) => fn());
         map.destroy?.();
       }
+      host.removeEventListener("click", nativeVehicleClick, true);
       canvas.remove();
       native.remove();
       scene = null;

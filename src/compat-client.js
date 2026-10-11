@@ -103,6 +103,16 @@ export function createClientAdapter(ctx, { api, t, source = "linggo" }) {
       await ctx.sessions.create({ workspaceId: presentation.workspaceId }),
     );
   };
+  const prepareQuestion = async (sessionId, text) => {
+    const outcome = await ctx.sessions.using(sessionId, { source }, async (ref) => {
+      await ref.ready;
+      const value = initializeDraft(ref.binding, text);
+      await openSession(sessionId);
+      return value;
+    });
+    if (outcome === "manual") await navigator.clipboard.writeText(text);
+    return outcome;
+  };
   const openHandoff = async (item, project, prompt) => {
     if (!project) throw Error(t("dev.unknownProject"));
     const workspace = await workspaceFor(project);
@@ -161,6 +171,7 @@ export function createClientAdapter(ctx, { api, t, source = "linggo" }) {
     openSession,
     ensureProjectWorkspaces,
     newPresentation,
+    prepareQuestion,
     openHandoff,
     mountWorkbench,
     mountDevelopment,
