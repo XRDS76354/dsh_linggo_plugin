@@ -40,7 +40,8 @@
     "THIRD_PARTY_NOTICES.md",
     "docs/workbench-ui.md",
     "demo/*.json",
-    "docs/compose/spec/demo-minimal-drt-v2.md"
+    "docs/compose/spec/demo-minimal-drt-v2.md",
+    "docs/compose/spec/data-management-batch-import.md"
   ],
   "scripts": {
     "build": "node scripts/build.mjs",

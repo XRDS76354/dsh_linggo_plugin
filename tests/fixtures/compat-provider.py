@@ -4,6 +4,7 @@ No product/demo data, credentials or external model requests. Run only in isolat
 """
 import argparse
 import json
+import re
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -34,7 +35,44 @@ class Handler(BaseHTTPRequestHandler):
 
         try:
             chunk({"role": "assistant"})
-            if not slow and "linggo_status" in tools and not has_result:
+            human = next((m for m in reversed(messages) if m.get('role') == 'user' and 'LINGGO_BATCH_IMPORT' in str(m.get('content', ''))), {})
+            human_text = str(human.get('content', ''))
+            if 'LINGGO_BATCH_IMPORT' in human_text and 'linggo_prepare_import' in tools:
+                def parsed(message):
+                    raw = message.get('content', '')
+                    try:
+                        return json.loads(raw)
+                    except (TypeError, ValueError):
+                        if isinstance(raw, list):
+                            for item in raw:
+                                try: return json.loads(item.get('text', ''))
+                                except (TypeError, ValueError): pass
+                        return {}
+                tool_messages = [m for m in messages if m.get('role') == 'tool']
+                if any('Error:' in str(m.get('content', '')) for m in tool_messages):
+                    chunk({'content': '批量导入工具返回错误。'}); chunk({}, 'stop'); self.wfile.write(b'data: [DONE]\n\n'); return
+                results = [parsed(m) for m in tool_messages]
+                prepared = next((r for r in reversed(results) if isinstance(r, dict) and r.get('planId') and 'ready' in r), None)
+                submitted = next((r for r in reversed(results) if isinstance(r, dict) and r.get('jobId')), None)
+                status = next((r for r in reversed(results) if isinstance(r, dict) and r.get('job')), None)
+                if status and status['job']['status'] in ['done', 'failed', 'cancelled']:
+                    chunk({'content': '批量导入已完成。' if status['job']['status'] == 'done' else '批量导入未发布。'})
+                    chunk({}, 'stop')
+                else:
+                    if not prepared:
+                        path = re.search(r'导入 ([^\s]+)', human_text).group(1)
+                        name, arguments = 'linggo_prepare_import', {'path': path, 'crs': 'WGS84'}
+                    elif not prepared.get('ready'):
+                        chunk({'content': '需要明确数据映射。'}); chunk({}, 'stop')
+                        self.wfile.write(b'data: [DONE]\n\n'); return
+                    elif not submitted:
+                        name, arguments = 'linggo_commit_import', {'plan_id': prepared['planId']}
+                    else:
+                        time.sleep(.4)
+                        name, arguments = 'linggo_import_status', {'plan_id': prepared['planId']}
+                    chunk({'tool_calls': [{'index': 0, 'id': 'import-' + str(time.time_ns()), 'type': 'function', 'function': {'name': name, 'arguments': json.dumps(arguments)}}]})
+                    chunk({}, 'tool_calls')
+            elif not slow and "linggo_status" in tools and not has_result:
                 chunk({"tool_calls": [{"index": 0, "id": "compat-status", "type": "function",
                                        "function": {"name": "linggo_status", "arguments": "{}"}}]})
                 chunk({}, "tool_calls")

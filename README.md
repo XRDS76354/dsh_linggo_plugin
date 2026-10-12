@@ -2,7 +2,7 @@
 
 公交工作台插件，目标是把用户自己的公交数据接入地图、DSH 智能体和可替换调度算法。
 
-**基础工作台及最小演示已在 macOS Web 验收；还不是完整公交产品。** 已实现官方 bundle、独立三栏展示页、按项目隔离的展示/开发会话、开发交接、Host 侧工具限制、数据导入向导、不可变数据版本、内置画布、高德灰白与百度浅色地图适配、智能体查询与地图联动、DRT／DRT v2／配车／班次生成四个内置算法、自定义 Python 算法注册、结果回放与五份工作流程 Skills。打包、隔离 Python 初始化与跨平台验证在第四阶段完成。双版本验收见 [兼容记录](docs/compatibility.md)；分阶段验收详见 [验收记录](docs/verification.md) 和 [任务清单](.spec/tasks.md)。随包仅提供固定的合成最小演示，不含任何地区业务数据。
+**基础工作台及最小演示已在 macOS Web 验收；还不是完整公交产品。** 已实现官方 bundle、独立三栏展示页、按项目隔离的展示/开发会话、开发交接、Host 侧工具限制、数据导入向导、不可变数据版本、内置画布、高德灰白与百度浅色地图适配、智能体查询与地图联动、DRT／DRT v2／配车／班次生成四个内置算法、自定义 Python 算法注册、结果回放与五份工作流程 Skills。打包、隔离 Python 初始化与跨平台验证在第四阶段完成。双版本验收见 [兼容记录](docs/compatibility.md)；分阶段验收详见 [验收记录](docs/verification.md) 和 [任务清单](.spec/tasks.md)。随包演示仅包含经白名单检查的八条公共线路、模拟运营需求及最小匿名计算片段，不含全量业务数据或原始身份。
 
 ## 开发安装
 
@@ -21,7 +21,7 @@ dsh --profile linggo --port 3180 --no-open
 
 使用 DSH 启动时打印的认证 URL 打开页面。在左侧栏点击“公交工作台”，再点击“打开三栏工作台”；原页面仍为 DSH 开发页。在三栏页创建项目（一个城市或区域一个项目），点击“新建展示会话”。原生 DSH 负责模型、消息、工具记录与流式响应，模型凭据仍在 DSH 内配置。
 
-展示会话只开放 `linggo_status`、`linggo_query`（只读查询当前数据版本）、`linggo_map`（在中间地图显示线路/站点/OD/结果）、`linggo_algorithms`、`linggo_propose_run`、`linggo_results` 和 `skill`；开发会话继续使用用户的 DSH 工具权限。工具限制由 Host 根据持久会话目录执行，不由页面按钮决定。
+展示会话只开放 `linggo_status`、`linggo_query`（只读查询当前数据版本）、`linggo_map`（在中间地图显示线路/站点/OD/结果）、`linggo_algorithms`、`linggo_propose_run`、`linggo_results` 、`linggo_projects`、`linggo_prepare_import`、`linggo_commit_import`、`linggo_import_status` 和 `skill`；导入限定用户明确指定的来源范围，删除接口仅供工作台使用。开发会话继续使用用户的 DSH 工具权限。工具限制由 Host 根据持久会话目录执行，不由页面按钮决定。
 
 三栏页的开发交接需要预览并确认后才保存。DSH 开发页的“公交工作台”面板列出交接；打开时进入该项目的开发工作区。`0.2.1-alpha.1` 使用原生接口预填草稿；`0.2.0-rc.2` 展示完整交接内容，先点击“复制交接内容”，再打开开发会话粘贴。已有草稿会保留，两种方式均不会自动发送。再次打开会回到同一个开发会话。已知限制见[验收记录](docs/verification.md#已知限制)。
 
@@ -189,3 +189,15 @@ npm run test:compat -- /absolute/path/to/rc2-runtime /absolute/path/to/alpha1-ru
 2. ~~数据导入、数据版本、地图与质量检查~~（已完成，PostGIS 和百度真实底图待实机验收）。
 3. ~~DRT、常规公交配车/客流班次、实验场景、Python 算法接口和 Skills~~（已完成，见上）。
 4. ~~预构建发行包、隔离 Python 初始化、发行前审计与许可说明~~（已完成）；Windows 安装修复与验证记录见[验收记录](docs/verification.md#windows-安装与数据通信修复)。Linux 实机和原生桌面窗口仍待验收。
+
+
+### 数据清理与智能体批量导入
+
+左栏数据标题栏的管理图标支持删除所选、清空全部、撤销最近导入；确认弹窗显示关联结果数量。仅删除插件内副本及关联结果，原始文件保留。任务标题栏可隐藏／恢复已完成、失败、已取消任务，运行中任务不能清理。
+
+在展示、开发或普通 DSH 会话中明确要求“导入这个目录的数据”并指定路径，即可调用 `linggo_projects` → `linggo_prepare_import` → `linggo_commit_import` → `linggo_import_status`。默认递归扫描授权目录，整批发布一个快照；未知坐标系、方向、字段冲突会集中询问。无关联项目时建立插件项目及双工作区，成功后更新地图；人工导入向导和 PostGIS 入口保留。无 Python 时需用户显式初始化环境，不自动下载。
+
+状态 schema 5 保留旧项目、数据、会话和草稿；源文件从不改写。详细行为见 [数据管理与导入规格](docs/compose/spec/data-management-batch-import.md)。
+
+
+本地 `link:` 开发安装更新 `lib/` 后，需完整退出并重新打开 DeepSeek Harness，让 Host 重新加载后台模块；只刷新浏览器可能出现“新版前端／旧版后台”，新增管理 API 返回 404。插件对此提供明确重启提示，不自动重试删除。

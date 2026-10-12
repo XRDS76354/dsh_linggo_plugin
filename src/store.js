@@ -1,8 +1,16 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, open, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  open,
+  readFile,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { join } from "node:path";
 
-export const SCHEMA = 4;
+export const SCHEMA = 5;
 const LOCK_STALE_MS = 30_000;
 const LOCK_WAIT_MS = 10_000;
 
@@ -27,6 +35,10 @@ export function migrate(state) {
   return {
     schema: SCHEMA,
     demo: state.demo ?? null,
+    importPlans: state.importPlans ?? [],
+    sessionProjects: state.sessionProjects ?? {},
+    operations: state.operations ?? [],
+    deletedTransactions: state.deletedTransactions ?? [],
     projects: (state.projects ?? []).map((p) => ({ ...p })),
     handoffs: (state.handoffs ?? []).map((h) => ({
       context: { dataVersionId: null, scenarioId: null, resultRefs: [] },
@@ -54,7 +66,9 @@ export class Store {
 
   async read() {
     try {
-      return migrate(JSON.parse(await readFile(join(this.root, "state.json"), "utf8")));
+      return migrate(
+        JSON.parse(await readFile(join(this.root, "state.json"), "utf8")),
+      );
     } catch (e) {
       if (e.code === "ENOENT") return migrate({});
       throw e;
@@ -69,7 +83,9 @@ export class Store {
     for (;;) {
       try {
         const handle = await open(lock, "wx", 0o600);
-        await handle.writeFile(JSON.stringify({ pid: process.pid, at: Date.now() }));
+        await handle.writeFile(
+          JSON.stringify({ pid: process.pid, at: Date.now() }),
+        );
         await handle.close();
         break;
       } catch (e) {
@@ -79,7 +95,8 @@ export class Store {
           await rm(lock, { force: true });
           continue;
         }
-        if (Date.now() > deadline) throw Error("LingGo state is locked by another process");
+        if (Date.now() > deadline)
+          throw Error("LingGo state is locked by another process");
         await new Promise((r) => setTimeout(r, 25 + Math.random() * 50));
       }
     }
@@ -112,7 +129,11 @@ export class Store {
   async createProject(input) {
     const name = nonempty(input?.name, "project name", 100);
     return this.update(async (state) => {
-      const project = { id: randomUUID(), name, createdAt: new Date().toISOString() };
+      const project = {
+        id: randomUUID(),
+        name,
+        createdAt: new Date().toISOString(),
+      };
       for (const mode of ["presentation", "development"])
         await mkdir(this.projectDir(project.id, mode), { recursive: true });
       state.projects.push(project);
@@ -125,19 +146,25 @@ export class Store {
     const dataVersionId = optionalId(input.dataVersionId, "data version");
     const scenarioId = optionalId(input.scenarioId, "scenario");
     const resultRefs = input.resultRefs ?? [];
-    if (!Array.isArray(resultRefs) || resultRefs.length > 50) throw Error("Invalid result references");
-    const owned = (list, id) => list.some((r) => r.id === id && r.projectId === projectId);
-    if (dataVersionId && !owned(state.dataVersions, dataVersionId)) throw Error("Unknown data version");
-    if (scenarioId && !owned(state.scenarios, scenarioId)) throw Error("Unknown scenario");
+    if (!Array.isArray(resultRefs) || resultRefs.length > 50)
+      throw Error("Invalid result references");
+    const owned = (list, id) =>
+      list.some((r) => r.id === id && r.projectId === projectId);
+    if (dataVersionId && !owned(state.dataVersions, dataVersionId))
+      throw Error("Unknown data version");
+    if (scenarioId && !owned(state.scenarios, scenarioId))
+      throw Error("Unknown scenario");
     for (const ref of resultRefs)
-      if (!owned(state.results, optionalId(ref, "result reference"))) throw Error("Unknown result");
+      if (!owned(state.results, optionalId(ref, "result reference")))
+        throw Error("Unknown result");
     return { dataVersionId, scenarioId, resultRefs: [...resultRefs] };
   }
 
   async createHandoff(input) {
     const summary = nonempty(input?.summary, "handoff summary");
     return this.update((state) => {
-      if (!state.projects.some((p) => p.id === input.projectId)) throw Error("Unknown project");
+      if (!state.projects.some((p) => p.id === input.projectId))
+        throw Error("Unknown project");
       const handoff = {
         id: randomUUID(),
         projectId: input.projectId,
@@ -168,7 +195,14 @@ export class Store {
   }
 
   versionDir(projectId, versionId) {
-    return join(this.root, "projects", projectId, "data", "versions", versionId);
+    return join(
+      this.root,
+      "projects",
+      projectId,
+      "data",
+      "versions",
+      versionId,
+    );
   }
 
   stagingDir(projectId, jobId) {
@@ -196,7 +230,11 @@ export class Store {
     return this.update((state) => {
       const project = state.projects.find((p) => p.id === input?.projectId);
       if (!project) throw Error("Unknown project");
-      if (!state.dataVersions.some((v) => v.id === input.versionId && v.projectId === project.id))
+      if (
+        !state.dataVersions.some(
+          (v) => v.id === input.versionId && v.projectId === project.id,
+        )
+      )
         throw Error("Unknown data version");
       project.currentVersionId = input.versionId;
       return project;
@@ -212,12 +250,19 @@ export class Store {
   }
 
   algorithmFile(projectId, algorithmId) {
-    return join(this.root, "projects", projectId, "algorithms", `${algorithmId}.py`);
+    return join(
+      this.root,
+      "projects",
+      projectId,
+      "algorithms",
+      `${algorithmId}.py`,
+    );
   }
 
   async addResult(result) {
     return this.update((state) => {
-      if (!state.projects.some((p) => p.id === result.projectId)) throw Error("Unknown project");
+      if (!state.projects.some((p) => p.id === result.projectId))
+        throw Error("Unknown project");
       state.results.push(result);
       return result;
     });
@@ -225,7 +270,8 @@ export class Store {
 
   async addAlgorithm(algorithm) {
     return this.update((state) => {
-      if (!state.projects.some((p) => p.id === algorithm.projectId)) throw Error("Unknown project");
+      if (!state.projects.some((p) => p.id === algorithm.projectId))
+        throw Error("Unknown project");
       state.algorithms.push(algorithm);
       return algorithm;
     });
@@ -233,7 +279,9 @@ export class Store {
 
   async removeAlgorithm(input) {
     return this.update((state) => {
-      const item = state.algorithms.find((a) => a.id === input?.id && a.projectId === input?.projectId);
+      const item = state.algorithms.find(
+        (a) => a.id === input?.id && a.projectId === input?.projectId,
+      );
       if (!item) throw Error("Unknown algorithm");
       state.algorithms = state.algorithms.filter((a) => a !== item);
       return item;
@@ -243,8 +291,55 @@ export class Store {
   /** Keep finished jobs for history; running jobs live in memory only. */
   async recordJob(job) {
     return this.update((state) => {
-      state.jobs = [...state.jobs.filter((j) => j.id !== job.id), job].slice(-JOB_HISTORY);
+      state.jobs = [...state.jobs.filter((j) => j.id !== job.id), job].slice(
+        -JOB_HISTORY,
+      );
       return job;
+    });
+  }
+
+  /** A project lease prevents another Host from deleting inputs during a worker run. */
+  async claimOperation(projectId, kind, id = randomUUID()) {
+    await this.update((state) => {
+      if (!state.projects.some((p) => p.id === projectId))
+        throw Error("Unknown project");
+      state.operations = state.operations.filter(operationAlive);
+      if (state.operations.some((o) => o.projectId === projectId))
+        throw Error("该项目正在导入、运行算法或清理数据，请先等待或取消");
+      state.operations.push({
+        id,
+        projectId,
+        kind,
+        pid: process.pid,
+        at: Date.now(),
+      });
+    });
+    return id;
+  }
+
+  async releaseOperation(id) {
+    return this.update((state) => {
+      state.operations = state.operations.filter((o) => o.id !== id);
+    });
+  }
+
+  async setJobsHidden({ projectId, ids, hidden }) {
+    if (!Array.isArray(ids) || !ids.length || typeof hidden !== "boolean")
+      throw Error("请选择任务");
+    return this.update((state) => {
+      if (!state.projects.some((p) => p.id === projectId))
+        throw Error("Unknown project");
+      const items = ids.map((id) =>
+        state.jobs.find((j) => j.id === id && j.projectId === projectId),
+      );
+      if (
+        items.some(
+          (j) => !j || !["done", "failed", "cancelled"].includes(j.status),
+        )
+      )
+        throw Error("只能清理已完成、失败或已取消的任务");
+      for (const item of items) item.hidden = hidden;
+      return { changed: items.length };
     });
   }
 
@@ -255,5 +350,15 @@ export class Store {
       item.archivedAt ??= new Date().toISOString();
       return item;
     });
+  }
+}
+
+export function operationAlive(operation) {
+  if (!Number.isInteger(operation?.pid) || operation.pid < 1) return false;
+  try {
+    process.kill(operation.pid, 0);
+    return true;
+  } catch (error) {
+    return error.code === "EPERM";
   }
 }

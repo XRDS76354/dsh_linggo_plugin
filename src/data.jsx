@@ -1,5 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { SideSection, useSectionState } from "./workbench-ui.jsx";
+import {
+  DataManager,
+  TaskManager,
+  managementStyle,
+} from "./data-management.jsx";
 import { Icon } from "./icons.jsx";
 import {
   ENTITY_ORDER as ORDER,
@@ -14,7 +19,9 @@ import {
 } from "./sidebar-model.js";
 const h = React.createElement;
 
-export const dataStyle = `
+export const dataStyle =
+  managementStyle +
+  `
 .linggo-tabbar{display:flex;gap:2px;border-bottom:1px solid var(--c-line);margin:-8px 0 12px;}
 .linggo-tabbar button{border:0!important;border-bottom:2px solid transparent!important;border-radius:0!important;margin:0!important;}
 .linggo-tabbar button[aria-pressed="true"]{border-bottom-color:var(--c-accent)!important;font-weight:600;}
@@ -61,14 +68,20 @@ export function DataSummary({
   const [datasetLimit, setDatasetLimit] = useState(SIDEBAR_PAGE_SIZE);
   const [jobLimit, setJobLimit] = useState(SIDEBAR_PAGE_SIZE);
   const attention = useRef(new Map());
+  const [manager, setManager] = useState(null);
+  useEffect(() => setManager(null), [project]);
   const orderedJobs = newestJobs(jobs, project);
   const active = orderedJobs.filter(isActiveJob);
   const failed = orderedJobs.filter((job) => job.status === "failed");
   const visibleDatasets = limitSidebarRows(
-    datasets.slice().reverse(), datasetLimit, (item) => item.id === current?.id,
+    datasets.slice().reverse(),
+    datasetLimit,
+    (item) => item.id === current?.id,
   );
   const visibleJobs = limitSidebarRows(
-    orderedJobs, jobLimit, (job) => isActiveJob(job) || job.id === failed[0]?.id,
+    orderedJobs,
+    jobLimit,
+    (job) => isActiveJob(job) || job.id === failed[0]?.id,
   );
   useEffect(() => {
     setDatasetLimit(SIDEBAR_PAGE_SIZE);
@@ -77,7 +90,12 @@ export function DataSummary({
     setJobLimit(SIDEBAR_PAGE_SIZE);
   }, [project, jobsOpen]);
   useEffect(() => {
-    const next = observeJobAttention(localStorage, project, jobs, attention.current.get(project));
+    const next = observeJobAttention(
+      localStorage,
+      project,
+      jobs,
+      attention.current.get(project),
+    );
     attention.current.set(project, next.tokens);
     if (next.shouldOpen) setJobsOpen(true);
   }, [project, jobs, setJobsOpen]);
@@ -89,50 +107,84 @@ export function DataSummary({
       h(
         "div",
         { className: "linggo-task-row" },
-        h("span", { className: "linggo-row-title", title: job.title }, job.title),
         h(
           "span",
-          { className: "linggo-row-meta" +
-              (isActiveJob(job) ? " linggo-task-active" : job.status === "failed" ? " linggo-task-failed" : "") },
+          { className: "linggo-row-title", title: job.title },
+          job.title,
+        ),
+        h(
+          "span",
+          {
+            className:
+              "linggo-row-meta" +
+              (isActiveJob(job)
+                ? " linggo-task-active"
+                : job.status === "failed"
+                  ? " linggo-task-failed"
+                  : ""),
+          },
           t("job." + job.status),
         ),
-        job.status === "running" && h(
-          "button",
-          {
-            type: "button",
-            className: "linggo-task-cancel",
-            title: t("job.cancel"),
-            "aria-label": t("job.cancel"),
-            disabled: busy,
-            onClick: () => run(async () => {
-              await api("cancelJob", { id: job.id });
-              await refreshJobs();
-            }),
-          },
-          h(Icon, { name: "close", size: 14 }),
-        ),
+        job.status === "running" &&
+          h(
+            "button",
+            {
+              type: "button",
+              className: "linggo-task-cancel",
+              title: t("job.cancel"),
+              "aria-label": t("job.cancel"),
+              disabled: busy,
+              onClick: () =>
+                run(async () => {
+                  await api("cancelJob", { id: job.id });
+                  await refreshJobs();
+                }),
+            },
+            h(Icon, { name: "close", size: 14 }),
+          ),
       ),
-      job.status === "running" && h(
-        "div",
-        { className: "linggo-task-detail" },
+      job.status === "running" &&
         h(
           "div",
-          { className: "linggo-progress", role: "progressbar", "aria-label": job.title,
-            "aria-valuemin": 0, "aria-valuemax": 100, "aria-valuenow": Math.round(job.progress * 100) },
-          h("div", {
-            style: { width: Math.round(job.progress * 100) + "%" },
-          }),
+          { className: "linggo-task-detail" },
+          h(
+            "div",
+            {
+              className: "linggo-progress",
+              role: "progressbar",
+              "aria-label": job.title,
+              "aria-valuemin": 0,
+              "aria-valuemax": 100,
+              "aria-valuenow": Math.round(job.progress * 100),
+            },
+            h("div", {
+              style: { width: Math.round(job.progress * 100) + "%" },
+            }),
+          ),
+          job.message &&
+            h(
+              "small",
+              { className: "linggo-task-message", title: job.message },
+              job.message,
+            ),
         ),
-        job.message && h("small", { className: "linggo-task-message", title: job.message }, job.message),
-      ),
-      job.error && h(
-        "div",
-        { className: "linggo-task-detail" },
-        h("small", { className: "linggo-error", title: job.error }, job.error),
-      ),
+      job.error &&
+        h(
+          "div",
+          { className: "linggo-task-detail" },
+          h(
+            "small",
+            { className: "linggo-error", title: job.error },
+            job.error,
+          ),
+        ),
     );
   const summaryText = datasetSummary(t, current);
-  const summary = h("div", { className: "linggo-section-summary", title: summaryText }, summaryText);
+  const summary = h(
+    "div",
+    { className: "linggo-section-summary", title: summaryText },
+    summaryText,
+  );
   return h(
     React.Fragment,
     null,
@@ -141,77 +193,156 @@ export function DataSummary({
       {
         id: "data",
         title: t("wb.data"),
-        badge: datasets.length ? t("ui.datasetCount", { count: datasets.length }) : "",
+        badge: datasets.length
+          ? t("ui.datasetCount", { count: datasets.length })
+          : "",
         icon: h(Icon, { name: "database", size: 16 }),
         open: dataOpen,
         onOpenChange: setDataOpen,
         collapsedSummary: summary,
         actions: h(
-          "button",
-          {
-            type: "button",
-            title: t("data.import"),
-            "aria-label": t("data.import"),
-            disabled: busy || !project,
-            onClick: openImport,
-          },
-          h(Icon, { name: "plus", size: 16 }),
+          React.Fragment,
+          null,
+          h(
+            "button",
+            {
+              type: "button",
+              title: t("manage.datasets"),
+              "aria-label": t("manage.datasets"),
+              disabled: busy || !project,
+              onClick: () => setManager("data"),
+            },
+            h(Icon, { name: "trash", size: 16 }),
+          ),
+          h(
+            "button",
+            {
+              type: "button",
+              title: t("data.import"),
+              "aria-label": t("data.import"),
+              disabled: busy || !project,
+              onClick: openImport,
+            },
+            h(Icon, { name: "plus", size: 16 }),
+          ),
         ),
       },
       summary,
       h(
         "ul",
         { className: "linggo-sidebar-list", "aria-label": t("ui.datasets") },
-        ...visibleDatasets.rows.map((item) => h(
-          "li",
-          { key: item.id },
+        ...visibleDatasets.rows.map((item) =>
           h(
-            "button",
-            {
-              type: "button",
-              className: "linggo-sidebar-row",
-              disabled: busy,
-              "aria-current": item.id === current?.id ? "true" : undefined,
-              title: datasetSummary(t, item),
-              onClick: () => run(async () => {
-                await api("selectVersion", { projectId: project, versionId: item.id });
-                await refresh();
-              }),
-            },
-            h("span", { className: "linggo-row-title" }, datasetLabel(t, item)),
-            h("span", { className: "linggo-row-meta" }, new Date(item.createdAt).toLocaleDateString()),
+            "li",
+            { key: item.id },
+            h(
+              "button",
+              {
+                type: "button",
+                className: "linggo-sidebar-row",
+                disabled: busy,
+                "aria-current": item.id === current?.id ? "true" : undefined,
+                title: datasetSummary(t, item),
+                onClick: () =>
+                  run(async () => {
+                    await api("selectVersion", {
+                      projectId: project,
+                      versionId: item.id,
+                    });
+                    await refresh();
+                  }),
+              },
+              h(
+                "span",
+                { className: "linggo-row-title" },
+                datasetLabel(t, item),
+              ),
+              h(
+                "span",
+                { className: "linggo-row-meta" },
+                new Date(item.createdAt).toLocaleDateString(),
+              ),
+            ),
           ),
-        )),
+        ),
       ),
-      visibleDatasets.hiddenCount > 0 && h(
-        "button",
-        { type: "button", className: "linggo-show-more", onClick: () => setDatasetLimit((value) => value + SIDEBAR_PAGE_SIZE) },
-        t("ui.showMore", { count: visibleDatasets.hiddenCount }),
-      ),
+      visibleDatasets.hiddenCount > 0 &&
+        h(
+          "button",
+          {
+            type: "button",
+            className: "linggo-show-more",
+            onClick: () =>
+              setDatasetLimit((value) => value + SIDEBAR_PAGE_SIZE),
+          },
+          t("ui.showMore", { count: visibleDatasets.hiddenCount }),
+        ),
     ),
     h(
       SideSection,
       {
         id: "jobs",
+        actions: h(
+          "button",
+          {
+            type: "button",
+            title: t("manage.tasks"),
+            "aria-label": t("manage.tasks"),
+            disabled: busy || !project,
+            onClick: () => setManager("jobs"),
+          },
+          h(Icon, { name: "trash", size: 16 }),
+        ),
         title: t("wb.tasks"),
         icon: h(Icon, { name: "list", size: 16 }),
         open: jobsOpen,
         onOpenChange: setJobsOpen,
-        badge: active.length || failed.length
-          ? t("ui.jobCounts", {
-              running: String(active.length),
-              failed: String(failed.length),
-            })
-          : "",
+        badge:
+          active.length || failed.length
+            ? t("ui.jobCounts", {
+                running: String(active.length),
+                failed: String(failed.length),
+              })
+            : "",
       },
-      !orderedJobs.length && h("small", { className: "linggo-section-summary" }, t("wb.noTasks")),
-      h("ul", { className: "linggo-sidebar-list", "aria-label": t("wb.tasks") }, ...visibleJobs.rows.map(renderJob)),
-      visibleJobs.hiddenCount > 0 && h(
-        "button",
-        { type: "button", className: "linggo-show-more", onClick: () => setJobLimit((value) => value + SIDEBAR_PAGE_SIZE) },
-        t("ui.showMore", { count: visibleJobs.hiddenCount }),
+      !orderedJobs.length &&
+        h("small", { className: "linggo-section-summary" }, t("wb.noTasks")),
+      h(
+        "ul",
+        { className: "linggo-sidebar-list", "aria-label": t("wb.tasks") },
+        ...visibleJobs.rows.map(renderJob),
       ),
+      visibleJobs.hiddenCount > 0 &&
+        h(
+          "button",
+          {
+            type: "button",
+            className: "linggo-show-more",
+            onClick: () => setJobLimit((value) => value + SIDEBAR_PAGE_SIZE),
+          },
+          t("ui.showMore", { count: visibleJobs.hiddenCount }),
+        ),
     ),
+    manager === "data" &&
+      h(DataManager, {
+        t,
+        api,
+        project,
+        datasets,
+        onClose: () => setManager(null),
+        refresh: async () => {
+          await refresh();
+          await refreshJobs();
+        },
+      }),
+    manager === "jobs" &&
+      h(TaskManager, {
+        t,
+        api,
+        project,
+        onClose: () => setManager(null),
+        refresh: refreshJobs,
+      }),
   );
 }
 

@@ -10,10 +10,11 @@ export class Jobs {
     this.running = new Map();
   }
 
-  start({ projectId, kind, title, run, cleanup }) {
+  start({ projectId, kind, title, run, cleanup, id = randomUUID(), lease }) {
     const controller = new AbortController();
     const job = {
-      id: randomUUID(),
+      id,
+      ...(lease ? { ownerPid: process.pid } : {}),
       projectId,
       kind,
       title,
@@ -25,36 +26,58 @@ export class Jobs {
       error: null,
       result: null,
     };
-    this.running.set(job.id, { job, controller });
+    const entry = { job, controller };
+    this.running.set(job.id, entry);
     const progress = (value, message) => {
       job.progress = Math.max(job.progress, Math.min(1, Number(value) || 0));
       if (message) job.message = message;
     };
-    (async () => {
+    entry.completion = (async () => {
+      let terminalStatus;
       try {
+        if (lease) await this.store.recordJob(job);
         job.result = await run(controller.signal, progress);
-        job.status = "done";
+        terminalStatus = "done";
         job.progress = 1;
       } catch (error) {
-        job.status = controller.signal.aborted ? "cancelled" : "failed";
-        job.error = controller.signal.aborted ? null : String(error?.message ?? error);
+        terminalStatus = controller.signal.aborted ? "cancelled" : "failed";
+        job.error = controller.signal.aborted
+          ? null
+          : String(error?.message ?? error);
         await cleanup?.().catch(() => {});
       } finally {
         job.finishedAt = new Date().toISOString();
         // Record before leaving the live set so a listing never misses the job.
-        await this.store.recordJob(job).catch(() => {});
+        const finished = { ...job, status: terminalStatus };
+        if (lease) await this.store.releaseOperation(lease).catch(() => {});
+        await this.store.recordJob(finished).catch(() => {});
+        Object.assign(job, finished);
         this.running.delete(job.id);
       }
     })();
     return job;
   }
 
-  async list(projectId) {
+  async startLocked(options) {
+    const id = await this.store.claimOperation(
+      options.projectId,
+      options.kind,
+      options.id,
+    );
+    try {
+      return this.start({ ...options, id, lease: id });
+    } catch (error) {
+      await this.store.releaseOperation(id);
+      throw error;
+    }
+  }
+
+  async list(projectId, includeHidden = false) {
     const state = await this.store.read();
     const live = [...this.running.values()].map((r) => r.job);
     const ids = new Set(live.map((j) => j.id));
     return [...state.jobs.filter((j) => !ids.has(j.id)), ...live]
-      .filter((j) => j.projectId === projectId)
+      .filter((j) => j.projectId === projectId && (includeHidden || !j.hidden))
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   }
 
@@ -66,7 +89,10 @@ export class Jobs {
   }
 
   /** Abort everything when the plugin stops; cleanups remove staging output. */
-  dispose() {
-    for (const { controller } of this.running.values()) controller.abort(Error("Plugin stopped"));
+  async dispose() {
+    const entries = [...this.running.values()];
+    for (const { controller } of entries)
+      controller.abort(Error("Plugin stopped"));
+    await Promise.allSettled(entries.map((e) => e.completion));
   }
 }

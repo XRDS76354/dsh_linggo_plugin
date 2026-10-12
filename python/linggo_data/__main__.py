@@ -100,7 +100,15 @@ def run(req):
     return r(req, progress)
 
 
-COMMANDS = {"doctor": doctor, "inspect": inspect, "preview": preview, "ingest": ingest, "query": query, "algorithms": algorithms, "run": run}
+def inspect_batch(req):
+    from .batch import inspect_batch as f
+    return f(req)
+
+def ingest_batch(req):
+    from .batch import build
+    return build(req, progress)
+
+COMMANDS = {"inspect_batch": inspect_batch, "ingest_batch": ingest_batch, "doctor": doctor, "inspect": inspect, "preview": preview, "ingest": ingest, "query": query, "algorithms": algorithms, "run": run}
 
 
 def main():

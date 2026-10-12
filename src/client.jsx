@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { clientError } from "./client-errors.js";
 import { Icon } from "./icons.jsx";
 import { zh, en } from "./locales.js";
 import {
@@ -155,7 +156,9 @@ function useLinggoState(api, onReset) {
   const refresh = () =>
     api("state", {}).then(
       (s) => {
-        setState(s);
+        setState((old) =>
+          JSON.stringify(old) === JSON.stringify(s) ? old : s,
+        );
         setLoadError("");
         return s;
       },
@@ -163,7 +166,12 @@ function useLinggoState(api, onReset) {
     );
   useEffect(() => {
     refresh();
-    return onReset(refresh);
+    const timer = setInterval(refresh, 3000);
+    const removeReset = onReset(refresh);
+    return () => {
+      clearInterval(timer);
+      removeReset?.();
+    };
   }, []);
   return { state, refresh, loadError };
 }
@@ -266,6 +274,25 @@ function Workbench({
     [sessions],
   );
   const currentProject = presentationProject(current?.cwd);
+  useEffect(() => {
+    const imported = state.sessionProjects?.[current?.id];
+    if (imported && state.projects.some((p) => p.id === imported)) {
+      setProject(imported);
+      setTab("map");
+    }
+  }, [state.sessionProjects?.[current?.id], current?.id]);
+  const knownResults = useRef([]);
+  useEffect(() => {
+    if (
+      runId &&
+      knownResults.current.some(
+        (r) => r.id === runId && r.projectId === project,
+      ) &&
+      !state.results?.some((r) => r.id === runId && r.projectId === project)
+    )
+      setRunId(null);
+    knownResults.current = state.results ?? [];
+  }, [state.results, runId, project]);
   const known = state.projects.some((p) => p.id === project);
   const selected = state.projects.find((p) => p.id === project);
   useEffect(() => {
@@ -350,15 +377,16 @@ function Workbench({
     refreshJobs();
   }, [project, known]);
   useEffect(() => {
-    if (!running) return;
+    if (!known) return;
     const timer = setInterval(async () => {
       const list = await api("jobs", { projectId: project }).catch(() => null);
       if (!list || projectRef.current !== project) return;
-      setJobs(list);
-      if (!list.some((j) => j.status === "running")) refresh();
+      setJobs((old) =>
+        JSON.stringify(old) === JSON.stringify(list) ? old : list,
+      );
     }, 1000);
     return () => clearInterval(timer);
-  }, [running, project]);
+  }, [known, project]);
 
   // Proposals from the presentation agent show as a count on the analysis tab.
   useEffect(() => {
@@ -1324,13 +1352,17 @@ export function apply(ctx) {
   const t = ctx.locale.bind(NS);
 
   const api = async (operation, payload) => {
-    const r = await ctx.connection.rpc.call(
-      "/api",
-      `linggo.${operation}`,
-      payload,
-    );
-    if (!r.ok) throw Error(r.error.message);
-    return r.value;
+    try {
+      const r = await ctx.connection.rpc.call(
+        "/api",
+        `linggo.${operation}`,
+        payload,
+      );
+      if (!r.ok) throw Error(r.error.message);
+      return r.value;
+    } catch (error) {
+      throw clientError(operation, error, t);
+    }
   };
   const resets = new Set();
   ctx.on("connection/reset", () => resets.forEach((fn) => fn()));

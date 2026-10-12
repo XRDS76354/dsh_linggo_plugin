@@ -4,6 +4,10 @@ import { isAbsolute, relative, resolve, sep } from "node:path";
 /** Tools a presentation-session agent may call. Everything else is denied on the Host. */
 export const PRESENTATION_TOOLS = [
   "linggo_status",
+  "linggo_projects",
+  "linggo_prepare_import",
+  "linggo_commit_import",
+  "linggo_import_status",
   "linggo_query",
   "linggo_map",
   "linggo_algorithms",

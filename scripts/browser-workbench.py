@@ -5,7 +5,7 @@ import argparse,json,re,time
 from pathlib import Path
 from urllib.parse import urlsplit
 from playwright.sync_api import sync_playwright,expect
-p=argparse.ArgumentParser();p.add_argument('log');p.add_argument('home');p.add_argument('--shots',required=True);p.add_argument('--real-maps',action='store_true');a=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('log');p.add_argument('home');p.add_argument('--shots',required=True);p.add_argument('--real-maps',action='store_true');a=p.parse_args();a.home=str(Path(a.home).resolve())
 url=re.findall(r'http://127\.0\.0\.1:\d+/\?token=[^\s\"\']+',Path(a.log).read_text())[-1];origin='http://'+urlsplit(url).netloc
 out=Path(a.shots);out.mkdir(parents=True,exist_ok=True)
 with sync_playwright() as pw:

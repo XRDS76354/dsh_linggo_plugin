@@ -114,7 +114,7 @@ test("no Python: canonical queries, network filters, OD map and all five presets
         },
       },
     };
-    assert.equal((await h.call("state")).schema, 4);
+    assert.equal((await h.call("state")).schema, 5);
     assert.equal(
       (await h.tools.linggo_status.execute({}, exec)).synthetic,
       false,
