@@ -66,6 +66,7 @@ export function runWorker({ python, request, signal, onProgress, timeoutMs = 30 
     let buffer = "";
     let stderr = "";
     let result;
+    let stopError;
     let settled = false;
     const finish = (fn, value) => {
       if (settled) return;
@@ -76,30 +77,34 @@ export function runWorker({ python, request, signal, onProgress, timeoutMs = 30 
     };
     const kill = () => {
       child.kill("SIGTERM");
-      setTimeout(() => child.exitCode === null && child.kill("SIGKILL"), 3000).unref();
+      setTimeout(() => child.exitCode === null && child.signalCode === null && child.kill("SIGKILL"), 3000).unref();
+    };
+    // Keep project locks and staging directories alive until the worker releases its files.
+    const stopWithError = (error) => {
+      if (settled || stopError) return;
+      stopError = error;
+      kill();
     };
     const abort = () => {
-      kill();
-      finish(reject, signal.reason ?? Error("Cancelled"));
+      stopWithError(signal.reason ?? Error("Cancelled"));
     };
     const timer = setTimeout(() => {
-      kill();
-      finish(reject, Error("数据处理超时"));
+      stopWithError(Error("数据处理超时"));
     }, timeoutMs);
     signal?.addEventListener("abort", abort, { once: true });
+    if (signal?.aborted) abort();
     child.on("error", (error) =>
       finish(reject, error.code === "ENOENT" ? Error(`找不到 Python：${python}。请先初始化插件 Python 环境。`) : error),
     );
     child.stdout.setEncoding("utf8");
     const receive = (line) => {
-      if (settled || !line.trim()) return;
+      if (settled || stopError || !line.trim()) return;
       let event;
       try {
         event = JSON.parse(line);
         if (!event || typeof event !== "object" || Array.isArray(event)) throw Error("Invalid event");
       } catch {
-        kill();
-        finish(reject, Error("数据进程协议错误：输出不是合法 JSON 事件。请检查 Python 数据模块或自定义算法的标准输出。"));
+        stopWithError(Error("数据进程协议错误：输出不是合法 JSON 事件。请检查 Python 数据模块或自定义算法的标准输出。"));
         return;
       }
       if (event.event === "progress") onProgress?.(event.value, event.message);
@@ -120,6 +125,7 @@ export function runWorker({ python, request, signal, onProgress, timeoutMs = 30 
     });
     child.on("close", (code) => {
       receive(buffer);
+      if (stopError) return finish(reject, stopError);
       if (result?.ok) return finish(resolve, result.value);
       if (result) return finish(reject, Error(result.error));
       const missing = /No module named '?([\w.]+)/.exec(stderr);
@@ -127,7 +133,7 @@ export function runWorker({ python, request, signal, onProgress, timeoutMs = 30 
       finish(reject, Error(`数据进程异常退出（${code}）：${stderr.trim().split("\n").at(-1) ?? ""}`));
     });
     child.stdin.on("error", (error) => {
-      if (error.code !== "EPIPE") finish(reject, error);
+      if (error.code !== "EPIPE") stopWithError(error);
     });
     child.stdin.end(JSON.stringify(request));
   });

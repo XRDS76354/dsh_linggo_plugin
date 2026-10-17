@@ -131,7 +131,7 @@ node <安装目录>/node_modules/dsh-linggo-plugin/scripts/setup-python.mjs
 
 ```powershell
 dsh --profile linggo-win --from-default-profile web --help
-# GitHub 安装：修复提交发布后使用，仓库必须包含 lib/ 构建文件。
+# GitHub 安装：main 随附预构建 lib/ 文件。
 dsh plugin --profile linggo-win add github:XRDS76354/dsh_linggo_plugin
 dsh --profile linggo-win --port 3180 --no-open
 ```
@@ -210,8 +210,8 @@ npm run test:compat -- --smoke /absolute/path/to/rc2-runtime /absolute/path/to/a
 
 先用官方插件管理器更新／重载；若诊断仍指向旧后台或宿主提示重启，再完整退出 DSH 并重新打开工作台。仅刷新浏览器不能替换已加载的 Host 模块。布局锚点不符合预期时释放三栏样式并保留原生页面；本轮不替换现有布局接法。
 
-本地安装：`dsh plugin --profile <profile> add /absolute/path/to/dsh-linggo-plugin-0.1.1-alpha.3.tgz`，也可在插件管理器使用本地包路径。交付包已预构建，不需要安装时执行构建脚本。现有 GitHub 地址在同步前仍提供旧包。
+本地安装：`dsh plugin --profile <profile> add /absolute/path/to/dsh-linggo-plugin-0.1.1-alpha.3.tgz`，也可在插件管理器使用本地包路径。交付包已预构建，不需要安装时执行构建脚本。GitHub main 已同步兼容修复。
 
 回退前保留兼容诊断和数据备份；仅安装该宿主允许的旧插件包，不删除 `$DSH_HOME/linggo`。旧 `alpha.2` 不支持 `0.2.1-rc.1`，因此不能作为当前新版宿主的强制回退包；不建议降级或改写 DSH 会话日志来迁就它。失败安装由官方管理器恢复 profile 依赖。保留的旧包只用于其原先兼容的隔离环境。
 
-维护者可运行 `npm run compat:upstream -- <精确候选版本>`，只读取官方包、比较 exports 与声明摘要，不执行候选插件代码、不改范围、不发布；随后在隔离 runtime 运行 `test:compat -- --single --candidate`。范围外版本的安装仍被拒绝。CI 的三版矩阵与手动上游检查均已配置，配置不等于 GitHub 上已经运行成功。
+维护者可运行 `npm run compat:upstream -- <精确候选版本>`，只读取官方包、比较 exports 与声明摘要，不执行候选插件代码、不改范围、不发布；随后在隔离 runtime 运行 `test:compat -- --single --candidate`。范围外版本的安装仍被拒绝。CI 的三版矩阵与手动上游检查均已配置，实际结果请核对[对应提交的 Actions](https://github.com/XRDS76354/dsh_linggo_plugin/actions/workflows/verify.yml)。

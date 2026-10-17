@@ -39,11 +39,16 @@ test("real worker emits and persists nested non-finite numbers as JSON null", { 
 });
 
 test("invalid worker output reports a protocol error without exposing its payload", { skip: !ready }, async (t) => {
-  const request = await algorithmFixture(t, `    print('{"private":"fixture-secret","geometry":NaN}', flush=True)
+  const request = await algorithmFixture(t, `    import os, pathlib, time
+    pathlib.Path(__file__).with_suffix('.pid').write_text(str(os.getpid()))
+    print('{"private":"fixture-secret","geometry":NaN}', flush=True)
+    time.sleep(5)
     return {'summary': {}}`);
   await assert.rejects(runWorker({ python, request }), (error) => {
     assert.match(error.message, /协议错误.*JSON/);
     assert.doesNotMatch(error.message, /fixture-secret|异常退出/);
     return true;
   });
+  const pid = Number(await readFile(request.algorithm.path.replace(/\.py$/, '.pid'), 'utf8'));
+  assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' }, 'worker has exited before callers can clean up staging files');
 });

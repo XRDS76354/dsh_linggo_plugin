@@ -9,8 +9,8 @@
 - Existing layout remains a guarded DOM adaptation. A recognized frame is tagged before scoped styles apply; loss or ambiguity removes tags and releases native layout. This reduces damage on drift, not the need for visual regression.
 - Official update/reload is preferred. Restart only when the Host remains stale or requests it; a browser reload alone cannot replace a cached Host module. HMR behavior is not assumed from a version number.
 - JS/Python and isolated official installer/Host/Web results and remaining limitations are recorded in [verification](docs/compatibility.md#2026-10-17-兼容维护修复).
-- Native Desktop window behavior is distinct from Web. Windows/Linux CI configuration does not imply a completed machine or GitHub run. AMap/Baidu external services and PostGIS are not newly verified.
-- No upstream patch, version exemption, data migration, or automatic GitHub publication. The `conversation.content` Factory is a later integration path; this release does not mount another composer or copy Chat implementation.
+- Native Desktop window behavior is distinct from Web. Check the exact commit's [CI results](https://github.com/XRDS76354/dsh_linggo_plugin/actions/workflows/verify.yml) separately from desktop validation. AMap/Baidu external services and PostGIS are not newly verified.
+- No upstream patch, version exemption, or data migration. The `conversation.content` Factory is a later integration path; this release does not mount another composer or copy Chat implementation.
 
 ## Reproduce
 
