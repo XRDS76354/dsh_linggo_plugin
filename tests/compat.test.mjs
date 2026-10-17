@@ -13,6 +13,8 @@ function fixture(initialize) {
     workspaces: { create: async () => ({ workspaceId: 'workspace', title: 'title' }), rename: async () => {},
       list: { getSnapshot: () => ({ items: [{ workspaceId: 'workspace' }] }) } },
     slots: { inject() {}, register() {} },
+    connection: { rpc: { call() {} } },
+    uiConversation: { events: { register() {} } },
     conversation: { input: initialize ? { requestDraftInitialization: (binding, options) => {
       calls.push(['draft', binding.id, options.prompt]); return initialize(binding, options);
     } } : { for() { throw Error('The old composer must not be modified'); } } },

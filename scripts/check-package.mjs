@@ -6,9 +6,10 @@ import { resolve } from "node:path";
 import { runNpm } from "./npm-command.mjs";
 export const PACKAGE_ROOT = fileURLToPath(new URL("../", import.meta.url));
 const allowed =
-  /^(lib\/(index|client)\.js|demo\/(bundle|catalog)\.json|python\/linggo_data\/\w+\.py|python\/templates\/\w+\.py|skills\/linggo-[\w-]+\.md|python\/requirements(-postgis)?\.txt|scripts\/setup-python\.mjs|package\.json|cordis\.patch\.yml|README\.md|LICENSE|THIRD_PARTY_NOTICES\.md|COMPATIBILITY\.md|docs\/((compatibility|workbench-ui)\.md|compose\/spec\/(demo-minimal-drt-v2|data-management-batch-import)\.md))$/;
+  /^(lib\/(index|client)\.js|demo\/(bundle|catalog)\.json|python\/linggo_data\/\w+\.py|python\/templates\/\w+\.py|skills\/linggo-[\w-]+\.md|python\/requirements(-postgis)?\.txt|scripts\/setup-python\.mjs|compatibility\.json|package\.json|cordis\.patch\.yml|README\.md|LICENSE|THIRD_PARTY_NOTICES\.md|COMPATIBILITY\.md|docs\/((compatibility|workbench-ui)\.md|compose\/spec\/(demo-minimal-drt-v2|data-management-batch-import)\.md))$/;
 const required = [
   "package.json",
+  "compatibility.json",
   "lib/index.js",
   "lib/client.js",
   "cordis.patch.yml",

@@ -27,3 +27,30 @@ jobs:
         env:
           PYTHONPATH: python
           PYTHONUTF8: '1'
+  compatibility-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      versions: ${{ steps.matrix.outputs.versions }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: matrix
+        run: node -e "require('fs').appendFileSync(process.env.GITHUB_OUTPUT, 'versions=' + JSON.stringify(require('./compatibility.json').runtimes) + '\n')"
+  compatibility:
+    needs: compatibility-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dsh: ${{ fromJSON(needs.compatibility-matrix.outputs.versions) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check:compat
+      - run: npm run check:build
+      - name: Install isolated official runtime
+        run: npm install --prefix .local/dsh --save-exact --no-audit --no-fund @deepseek-ai/dsh@${{ matrix.dsh }}
+      - run: npm run test:compat -- --single --smoke .local/dsh

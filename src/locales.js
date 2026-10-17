@@ -993,3 +993,34 @@ Object.assign(en, {
     "Fresh demo created; previous data and development changes retained.",
   "demo.tryDemo": "Open both demo paths",
 });
+
+Object.assign(zh, {
+  "compat.title": "LingGo 兼容诊断",
+  "compat.checking": "正在检查当前 DSH 接口…",
+  "compat.ready": "前后端协议与必需接口可用。",
+  "compat.differentBuild": "前后端构建不同，但协议兼容，可继续使用。可通过官方插件更新／重载同步版本。",
+  "compat.protocol": "前后端接口协议不匹配，已暂停新的写操作。请更新插件；若更新后仍出现，请完整重启 DSH 并重新打开工作台。",
+  "compat.capabilities": "当前 DSH 缺少 LingGo 必需接口，已暂停新的写操作。请查看诊断并安装匹配版本。",
+  "compat.restart": "当前后台尚未加载兼容诊断接口，已暂停新的写操作。请先完成官方插件更新／重载；仍未恢复时完整重启 DSH，再重新打开工作台。",
+  "compat.unavailable": "暂时无法检查后台兼容性，已暂停新的写操作。连接恢复后可重新检查。",
+  "compat.layout": "未识别到经过验证的 DSH 三栏结构，已停止布局接管并保留原生页面。请复制诊断以便适配。",
+  "compat.retry": "重新检查",
+  "compat.copy": "复制兼容摘要",
+  "compat.copied": "已复制",
+  "compat.details": "查看兼容摘要"
+});
+Object.assign(en, {
+  "compat.title": "LingGo compatibility",
+  "compat.checking": "Checking DSH APIs\u2026",
+  "compat.ready": "Client/Host protocol and required APIs are available.",
+  "compat.differentBuild": "Builds differ but protocols are compatible. You can continue; use official update/reload to synchronize.",
+  "compat.protocol": "Client/Host protocol mismatch. New writes are paused. Update the plugin; if still mismatched, restart DSH and reopen the workbench.",
+  "compat.capabilities": "Required DSH APIs are missing. New writes are paused. Check diagnostics and install a compatible version.",
+  "compat.restart": "The Host has not loaded the compatibility endpoint. New writes are paused. Use official update/reload; if needed restart DSH and reopen the workbench.",
+  "compat.unavailable": "Compatibility check unavailable. New writes are paused; retry after reconnecting.",
+  "compat.layout": "Unrecognized DSH frame. Layout takeover is disabled and native UI is retained. Copy diagnostics for adaptation.",
+  "compat.retry": "Check again",
+  "compat.copy": "Copy compatibility summary",
+  "compat.copied": "Copied",
+  "compat.details": "Compatibility summary"
+});

@@ -1,5 +1,15 @@
+import { capabilities, compatibilityConfig, missingCapabilities } from "./compatibility.js";
+export const clientCapabilities = (ctx) => capabilities(ctx, compatibilityConfig.clientRequired, compatibilityConfig.clientOptional);
 /** Public DSH integration seams. Business UI must not select an implementation by version. */
 export const FRAME_SELECTOR = "div:has(> [data-rightbar-col])";
+export const STYLED_FRAME_SELECTOR = "[data-linggo-frame]";
+export function presentationFrame(document) {
+  const frames = document.querySelectorAll(FRAME_SELECTOR);
+  if (frames.length !== 1) return { ok: false, code: frames.length ? "ambiguousFrame" : "missingFrame" };
+  const frame = frames[0], [sidebar, center, rightbar] = frame.children;
+  if (!sidebar || !center || !rightbar?.hasAttribute("data-rightbar-col") || sidebar.hasAttribute("data-rightbar-col") || center.hasAttribute("data-rightbar-col")) return { ok: false, code: "columnOrder" };
+  return { ok: true, frame, sidebar, center };
+}
 export function applyPresentationGeometry(
   document,
   geometry,
@@ -31,22 +41,7 @@ export function applyPresentationGeometry(
 }
 
 export function createClientAdapter(ctx, { api, t, source = "linggo" }) {
-  const required = {
-    "uiWorkspace.openSession": ctx.uiWorkspace?.openSession,
-    "uiWorkspace.openWorkspace": ctx.uiWorkspace?.openWorkspace,
-    "sessions.create": ctx.sessions?.create,
-    "sessions.using": ctx.sessions?.using,
-    "sessions.binding": ctx.sessions?.binding,
-    "sessions.list.getSnapshot": ctx.sessions?.list?.getSnapshot,
-    "workspaces.create": ctx.workspaces?.create,
-    "workspaces.rename": ctx.workspaces?.rename,
-    "workspaces.list.getSnapshot": ctx.workspaces?.list?.getSnapshot,
-    "slots.inject": ctx.slots?.inject,
-    "slots.register": ctx.slots?.register,
-  };
-  const missing = Object.entries(required)
-    .filter(([, fn]) => typeof fn !== "function")
-    .map(([key]) => key);
+  const missing = missingCapabilities(clientCapabilities(ctx));
   if (missing.length)
     throw Error(`LingGo: missing required DSH APIs: ${missing.join(", ")}`);
 
@@ -178,13 +173,48 @@ export function createClientAdapter(ctx, { api, t, source = "linggo" }) {
   };
 }
 
-export function installPresentationStyle(document, style, enabled) {
+export function installPresentationStyle(document, style, enabled, { canEnable = () => true, onChange = () => {} } = {}) {
   const el = document.createElement("style");
   el.dataset.linggo = "";
   el.textContent = style;
   document.head.append(el);
-  if (enabled) document.documentElement.setAttribute("data-linggo", "");
-  return () => {
+  let tagged;
+  const clearTags = () => {
+    if (tagged?.ok) {
+      tagged.frame.removeAttribute("data-linggo-frame");
+      tagged.sidebar.removeAttribute("data-linggo-sidebar");
+      tagged.center.removeAttribute("data-linggo-center");
+    }
+    tagged = undefined;
+    document.documentElement.removeAttribute("data-linggo");
+  };
+  const check = () => {
+    if (!enabled) return;
+    const next = presentationFrame(document);
+    if (next.ok && canEnable()) {
+      if (tagged?.frame !== next.frame || tagged?.center !== next.center || tagged?.sidebar !== next.sidebar) clearTags();
+      tagged = next;
+      next.frame.setAttribute("data-linggo-frame", "");
+      next.sidebar.setAttribute("data-linggo-sidebar", "");
+      next.center.setAttribute("data-linggo-center", "");
+      document.documentElement.setAttribute("data-linggo", "");
+    } else clearTags();
+    onChange({ ok: next.ok, code: next.ok ? "ready" : next.code });
+  };
+  const Observer = document.defaultView?.MutationObserver;
+  let scheduled;
+  const schedule = () => {
+    if (scheduled !== undefined) return;
+    if (document.defaultView?.requestAnimationFrame) scheduled = document.defaultView.requestAnimationFrame(() => { scheduled = undefined; check(); });
+    else check();
+  };
+  const observer = enabled && Observer ? new Observer(schedule) : null;
+  observer?.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-rightbar-col"] });
+  check();
+  const dispose = () => {
+    observer?.disconnect();
+    if (scheduled !== undefined) document.defaultView?.cancelAnimationFrame(scheduled);
+    clearTags();
     el.remove();
     for (const key of ["--linggo-left", "--linggo-reserved", "--linggo-width"]) document.documentElement.style.removeProperty(key);
     for (const key of [
@@ -196,4 +226,6 @@ export function installPresentationStyle(document, style, enabled) {
     ])
       document.documentElement.removeAttribute(key);
   };
+  dispose.check = check;
+  return dispose;
 }

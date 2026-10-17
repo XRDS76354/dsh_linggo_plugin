@@ -28,6 +28,7 @@ import { registerSkills } from "./skills.js";
 import {
   requireHostCapabilities,
   authenticatedWorkbenchUrl,
+  hostCompatibility,
 } from "./compat-host.js";
 
 export const name = "linggo";
@@ -55,6 +56,7 @@ When the user asks for code changes or new features, suggest the "交接给开�
 Never invent transit data: answer only from tool results, and when data is missing, say which data the project needs.`;
 
 export const OPERATIONS = [
+  "compatibility",
   "launch",
   "demoInfo",
   "ensureDemo",
@@ -204,6 +206,7 @@ function cleanMapping(input) {
 
 export async function apply(ctx, config = {}) {
   requireHostCapabilities(ctx);
+  const compatibility = await hostCompatibility(ctx, OPERATIONS);
   const root = join(process.env.DSH_HOME || join(homedir(), ".dsh"), "linggo");
   await mkdir(join(root, "projects"), { recursive: true });
   const store = new Store(root);
@@ -745,6 +748,8 @@ export async function apply(ctx, config = {}) {
 
   const handle = async (operation, input) => {
     switch (operation) {
+      case "compatibility":
+        return compatibility;
       case "demoInfo":
         return demoInfo(store, input.projectId);
       case "ensureDemo":

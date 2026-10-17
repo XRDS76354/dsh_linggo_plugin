@@ -1,11 +1,14 @@
+import { BUILD, capabilities, compatibilityConfig, missingCapabilities } from "./compatibility.js";
+
+export const hostCapabilities = (ctx) => capabilities(ctx, compatibilityConfig.hostRequired, compatibilityConfig.hostOptional);
+export async function hostCompatibility(ctx, operations) {
+  let runtime = null;
+  try { runtime = (await import("@deepseek-ai/dsh-app-boot")).getDshRuntimeVersion(); } catch { /* Diagnostic only, never infer a version. */ }
+  return { ...BUILD, runtime, capabilities: hostCapabilities(ctx), operations: [...operations] };
+}
 /** Missing security hooks must stop activation before business APIs are exposed. */
 export function requireHostCapabilities(ctx) {
-  const required = {
-    "tools.guard": ctx.tools?.guard,
-    "tools.register": ctx.tools?.register,
-    "connection.fetch.register": ctx.connection?.fetch?.register,
-  };
-  const missing = Object.entries(required).filter(([, fn]) => typeof fn !== "function").map(([key]) => key);
+  const missing = missingCapabilities(hostCapabilities(ctx));
   if (missing.length) throw Error(`LingGo: required DSH security/transport APIs unavailable: ${missing.join(", ")}`);
 }
 

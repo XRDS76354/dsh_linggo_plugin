@@ -135,6 +135,7 @@ test('presentation geometry and stylesheet disposal restore the official frame',
  const {applyPresentationGeometry,installPresentationStyle}=await import('../src/compat-client.js');
  const attrs=new Map(),values=new Map();let removed=false;
  const document={documentElement:{style:{setProperty:(k,v)=>values.set(k,v),removeProperty:k=>values.delete(k)},setAttribute:(k,v)=>attrs.set(k,v),removeAttribute:k=>attrs.delete(k),toggleAttribute:(k,v)=>v?attrs.set(k,''):attrs.delete(k)},head:{append:()=>{}},createElement:()=>({dataset:{},remove:()=>removed=true})};
+ const part=()=>({hasAttribute:()=>false,setAttribute:()=>{},removeAttribute:()=>{}});const right={...part(),hasAttribute:k=>k==='data-rightbar-col'};document.querySelectorAll=()=>[{...part(),children:[part(),part(),right]}];
  const disposeStyle=installPresentationStyle(document,'workbench-only',true);
  const disposeGeometry=applyPresentationGeometry(document,computeLayout(1440,DEFAULT_LAYOUT),{view:'map',focus:'normal',chatOpen:true});
  assert.equal(values.get('--linggo-left'),'272px');assert.equal(attrs.has('data-linggo'),true);

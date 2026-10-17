@@ -6,7 +6,7 @@
 
 ## 开发安装
 
-要求 Node.js 22.19+（在 Node 22.23.1 验证）、官方 DSH `0.2.0-rc.2` 或 `0.2.1-alpha.1`。无需修改 DSH 源码。
+要求 Node.js 22.19+（在 Node 22.23.1 验证）、官方 DSH `0.2.0-rc.2`、`0.2.1-alpha.1` 或 `0.2.1-rc.1`。无需修改 DSH 源码。
 
 GitHub 仓库随附 `lib/index.js` 和 `lib/client.js`，插件管理器安装时直接使用这些构建文件，不运行 `prepare` 或安装构建脚本。修改源码后须重新构建并一同提交 `lib/`；CI 在 Windows/Linux 上通过 `npm run check:build` 检查一致性。
 
@@ -118,7 +118,7 @@ npm run pack:release
 从发行包安装（不经源码目录）：
 
 ```sh
-dsh plugin --profile <profile> add ./dsh-linggo-plugin-0.1.1-alpha.2.tgz
+dsh plugin --profile <profile> add ./dsh-linggo-plugin-0.1.1-alpha.3.tgz
 export DSH_HOME=<该 profile 的 DSH_HOME>
 node <安装目录>/node_modules/dsh-linggo-plugin/scripts/setup-python.mjs
 ```
@@ -142,7 +142,7 @@ dsh --profile linggo-win --port 3180 --no-open
 Set-Location "C:\Projects\dsh_linggo_plugin"
 npm ci
 npm run pack:release
-dsh plugin --profile linggo-win add "C:\Projects\dsh_linggo_plugin\dsh-linggo-plugin-0.1.1-alpha.2.tgz"
+dsh plugin --profile linggo-win add "C:\Projects\dsh_linggo_plugin\dsh-linggo-plugin-0.1.1-alpha.3.tgz"
 # 源码目录也可安装：dsh plugin --profile linggo-win add "C:\Projects\dsh_linggo_plugin"
 dsh --profile linggo-win --port 3180 --no-open
 ```
@@ -173,15 +173,16 @@ CPTOND 与地区原始数据不随插件分发，也不因此获得再分发授�
 
 `src/compat-client.js` 集中封装工作区、展示会话、开发交接和页面挂载；`src/compat-host.js` 检查权限守卫及认证连接能力。草稿功能按实际 API 检测，不按版本号猜测。旧版不调用 `setDraft` 覆盖原生输入，不通过 DOM 或 localStorage 注入内容。
 
-发行版仅声明经过验证的两个 DSH 版本，不使用 `*` 或无上限范围。DSH/Cordis 及客户端服务所属包列为可选 peer（由 DSH 提供）；缺少必要 API 会明确拒绝启用。缺少 Host `tools.guard` 时不注册业务工具或接口。新增版本须在独立运行目录和独立 `DSH_HOME` 验证，不能替换正在运行的宿主依赖。
+兼容配置统一保存在 `compatibility.json`。`engines.dsh` 与可选 DSH peers 采用同一有上限范围，保留两个旧版并允许 `>=0.2.1-rc.1 <0.2.2-0`；范围内未来版本仅允许尝试，不代表已验收。DSH/Cordis 及客户端服务所属包列为可选 peer（由 DSH 提供）；缺少必要 API 会明确拒绝启用。缺少 Host `tools.guard` 时不注册业务工具或接口。新增版本须在独立运行目录和独立 `DSH_HOME` 验证，不能替换正在运行的宿主依赖。
 
 ```sh
 npm run build
 LINGGO_TEST_PYTHON=/absolute/path/to/python npm test
-npm run test:compat -- /absolute/path/to/rc2-runtime /absolute/path/to/alpha1-runtime
+npm run check:compat
+npm run test:compat -- --smoke /absolute/path/to/rc2-runtime /absolute/path/to/alpha1-runtime /absolute/path/to/rc1-runtime
 ```
 
-两处 runtime 应分别通过官方 npm 包安装精确版本。`test:compat` 验证官方兼容检查及真实工具执行守卫；页面挂载、交接、流式对话、停止和卸载另用 `scripts/browser-compat.py` 检查。兼容范围不是对未来 DSH 版本的承诺，新增版本须补充证据。
+三处 runtime 应分别通过官方 npm 包安装精确版本。`test:compat` 验证官方兼容检查及真实工具执行守卫；`--smoke` 额外在临时 home 验证 tarball 安装、启用、认证诊断、卸载及业务状态保留；页面挂载、交接、流式对话、停止和卸载另用 `scripts/browser-compat.py` 检查。兼容范围不是对未来 DSH 版本的承诺，新增版本须补充证据。
 
 ## 后续阶段
 
@@ -201,3 +202,16 @@ npm run test:compat -- /absolute/path/to/rc2-runtime /absolute/path/to/alpha1-ru
 
 
 本地 `link:` 开发安装更新 `lib/` 后，需完整退出并重新打开 DeepSeek Harness，让 Host 重新加载后台模块；只刷新浏览器可能出现“新版前端／旧版后台”，新增管理 API 返回 404。插件对此提供明确重启提示，不自动重试删除。
+
+
+### 升级诊断与本地回退
+
+`0.1.1-alpha.3` 增加只读兼容握手及设置页摘要。缺少必要安全接口时拒绝业务初始化；协议不匹配或旧后台没有诊断接口时暂停新写操作，不自动重试导入、删除、运行。构建标识不同但协议和所需能力兼容时可继续使用。摘要不包含路径、业务数据、模型或地图凭据。
+
+先用官方插件管理器更新／重载；若诊断仍指向旧后台或宿主提示重启，再完整退出 DSH 并重新打开工作台。仅刷新浏览器不能替换已加载的 Host 模块。布局锚点不符合预期时释放三栏样式并保留原生页面；本轮不替换现有布局接法。
+
+本地安装：`dsh plugin --profile <profile> add /absolute/path/to/dsh-linggo-plugin-0.1.1-alpha.3.tgz`，也可在插件管理器使用本地包路径。交付包已预构建，不需要安装时执行构建脚本。现有 GitHub 地址在同步前仍提供旧包。
+
+回退前保留兼容诊断和数据备份；仅安装该宿主允许的旧插件包，不删除 `$DSH_HOME/linggo`。旧 `alpha.2` 不支持 `0.2.1-rc.1`，因此不能作为当前新版宿主的强制回退包；不建议降级或改写 DSH 会话日志来迁就它。失败安装由官方管理器恢复 profile 依赖。保留的旧包只用于其原先兼容的隔离环境。
+
+维护者可运行 `npm run compat:upstream -- <精确候选版本>`，只读取官方包、比较 exports 与声明摘要，不执行候选插件代码、不改范围、不发布；随后在隔离 runtime 运行 `test:compat -- --single --candidate`。范围外版本的安装仍被拒绝。CI 的三版矩阵与手动上游检查均已配置，配置不等于 GitHub 上已经运行成功。

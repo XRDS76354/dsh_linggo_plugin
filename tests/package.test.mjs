@@ -7,7 +7,7 @@ import { join, dirname } from "node:path";
 import { validatePackage } from "../scripts/check-package.mjs";
 
 const files = [
-  "package.json", "lib/index.js", "lib/client.js", "cordis.patch.yml",
+  "compatibility.json", "package.json", "lib/index.js", "lib/client.js", "cordis.patch.yml",
   "python/linggo_data/__init__.py", "python/linggo_data/__main__.py",
   "python/linggo_data/jsonio.py", "python/linggo_data/drt_v2.py", "python/linggo_data/batch.py", "python/linggo_data/drt_v2_core.py", "demo/bundle.json", "demo/catalog.json",
   "python/requirements.txt", "scripts/setup-python.mjs",

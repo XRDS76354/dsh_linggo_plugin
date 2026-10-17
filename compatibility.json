@@ -1,0 +1,72 @@
+{
+  "pluginVersion": "0.1.1-alpha.3",
+  "range": "0.2.0-rc.2 || 0.2.1-alpha.1 || >=0.2.1-rc.1 <0.2.2-0",
+  "protocol": 1,
+  "runtimes": [
+    "0.2.0-rc.2",
+    "0.2.1-alpha.1",
+    "0.2.1-rc.1"
+  ],
+  "upstream": {
+    "tag": "dsh-v0.2.1-rc.1",
+    "commit": "1600d8a"
+  },
+  "hostPeers": [
+    "@deepseek-ai/dsh-api-session-controller",
+    "@deepseek-ai/dsh-api-workspace-controller",
+    "@deepseek-ai/dsh-client-connection",
+    "@deepseek-ai/dsh-client-ui-conversation",
+    "@deepseek-ai/dsh-client-ui-layout",
+    "@deepseek-ai/dsh-client-ui-slots",
+    "@deepseek-ai/dsh-client-ui-workspace",
+    "@deepseek-ai/dsh-tools",
+    "@deepseek-ai/dsh-llm",
+    "@deepseek-ai/dsh-app-boot"
+  ],
+  "hostRequired": [
+    "tools.guard",
+    "tools.register",
+    "connection.fetch.register"
+  ],
+  "hostOptional": [
+    "connection.authenticatedUrl",
+    "sessionController.create",
+    "sessionController.rename",
+    "workspaceController.create",
+    "workspaceController.rename",
+    "sessions.get",
+    "sessions.flush"
+  ],
+  "clientRequired": [
+    "uiWorkspace.openSession",
+    "uiWorkspace.openWorkspace",
+    "sessions.create",
+    "sessions.using",
+    "sessions.binding",
+    "sessions.list.getSnapshot",
+    "workspaces.create",
+    "workspaces.rename",
+    "workspaces.list.getSnapshot",
+    "slots.inject",
+    "slots.register",
+    "connection.rpc.call",
+    "uiConversation.events.register"
+  ],
+  "clientOptional": [
+    "conversation.input.requestDraftInitialization"
+  ],
+  "readOperations": [
+    "compatibility",
+    "state",
+    "env",
+    "jobs",
+    "mapData",
+    "mapActions",
+    "settings",
+    "algorithms",
+    "algorithmSource",
+    "runs",
+    "runResult",
+    "demoInfo"
+  ]
+}

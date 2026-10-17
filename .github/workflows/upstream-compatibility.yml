@@ -1,0 +1,22 @@
+name: Inspect upstream compatibility
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact candidate DSH version (empty lists dist tags)
+        required: false
+        type: string
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: node scripts/check-upstream.mjs
+        env:
+          LINGGO_DSH_CANDIDATE: ${{ inputs.version }}

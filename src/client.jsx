@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createCompatibilityClient } from "./compatibility.js";
+import { CompatibilityNotice } from "./compatibility-ui.jsx";
 import { clientError } from "./client-errors.js";
 import { Icon } from "./icons.jsx";
 import { zh, en } from "./locales.js";
@@ -16,7 +18,8 @@ import { installDemoIntroduction } from "./demo-conversation.jsx";
 import {
   createClientAdapter,
   installPresentationStyle,
-  FRAME_SELECTOR,
+  STYLED_FRAME_SELECTOR,
+  clientCapabilities,
 } from "./compat-client.js";
 import {
   useWorkbenchLayout,
@@ -42,18 +45,19 @@ export const inject = [
 ];
 
 const NS = "linggo";
-const FRAME = FRAME_SELECTOR;
+const FRAME = STYLED_FRAME_SELECTOR;
 const LAST_PROJECT = "linggo.project";
 
 const style = `
 html[data-linggo]{--linggo-width:64%;}
 html[data-linggo] ${FRAME}{padding-left:var(--linggo-width);grid-template-columns:0 minmax(0,1fr) 0!important;}
-html[data-linggo] ${FRAME}>:first-child{visibility:hidden;}
-html[data-linggo] ${FRAME}>:nth-child(2){grid-column:2;}
+html[data-linggo] ${FRAME}>[data-linggo-sidebar]{visibility:hidden;}
+html[data-linggo] ${FRAME}>[data-linggo-center]{grid-column:2;}
 html[data-linggo] ${FRAME}>[data-side]{display:none;}
 html[data-linggo] [data-rightbar-col],html[data-linggo] [aria-label="打开右侧边栏"],html[data-linggo] [aria-label="Open right sidebar"]{display:none!important;}
-html[data-linggo][data-linggo-blocked] ${FRAME}>:nth-child(2),html[data-linggo][data-linggo-chat-closed] ${FRAME}>:nth-child(2){visibility:hidden;}
+html[data-linggo][data-linggo-blocked] ${FRAME}>[data-linggo-center],html[data-linggo][data-linggo-chat-closed] ${FRAME}>[data-linggo-center]{visibility:hidden;}
 .linggo-root{--c-bg:var(--dsw-alias-bg-base,#fff);--c-side:var(--dsw-specific-sidebar-fill,#f6f7f9);--c-text:var(--dsw-alias-label-primary,#1f2329);--c-sub:var(--dsw-alias-label-secondary,#646a73);--c-cap:var(--dsw-alias-label-tertiary,#8f959e);--c-line:var(--dsw-alias-border-l3,#e4e6eb);--c-hover:var(--dsw-alias-interactive-bg-hover,#0000000d);--c-accent:var(--dsw-alias-state-business-primary,#3c6df0);--c-err:var(--dsw-alias-state-error-primary,#d83931);color:var(--c-text);font-family:var(--dsw-font-family,system-ui);font-size:13px;line-height:1.5;}
+.linggo-compat-notice{position:fixed;top:64px;right:16px;max-width:480px;width:calc(100vw - 32px);max-height:80vh;overflow:auto;pointer-events:auto;padding:16px;background:var(--c-bg);border:1px solid var(--c-line);border-radius:8px;box-shadow:0 4px 20px #0002;z-index:100;}
 .linggo-root *{box-sizing:border-box;}
 .linggo-root h2{font-size:15px;margin:0 0 4px;}
 .linggo-root h3{font-size:12px;font-weight:600;color:var(--c-sub);margin:18px 0 6px;text-transform:none;}
@@ -89,12 +93,12 @@ html[data-linggo][data-linggo-blocked] ${FRAME}>:nth-child(2),html[data-linggo][
   .linggo-workspace{top:44px;width:100%;grid-template-columns:1fr;grid-template-rows:auto 1fr;overflow:auto;}
   .linggo-workspace>aside{border-right:0;border-bottom:1px solid var(--c-line);padding-top:16px;}
   html[data-linggo-view="chat"] .linggo-workspace{display:none;}
-  html[data-linggo-view="workspace"] ${FRAME}>:nth-child(2){visibility:hidden;}
+  html[data-linggo-view="workspace"] ${FRAME}>[data-linggo-center]{visibility:hidden;}
   .linggo-cover{top:44px;left:0;}
   html[data-linggo-view="workspace"] .linggo-cover{display:none;}
 }
 ${dataStyle}${analysisStyle}${workbenchStyle}${mapStyle}${demoStyle}
-@media(max-width:899px){html[data-linggo-view="project"] ${FRAME}>:nth-child(2),html[data-linggo-view="map"] ${FRAME}>:nth-child(2){visibility:hidden;}html[data-linggo-view="chat"] .linggo-cover{display:grid;}html:not([data-linggo-view="chat"]) .linggo-cover{display:none;}}`;
+@media(max-width:899px){html[data-linggo-view="project"] ${FRAME}>[data-linggo-center],html[data-linggo-view="map"] ${FRAME}>[data-linggo-center]{visibility:hidden;}html[data-linggo-view="chat"] .linggo-cover{display:grid;}html:not([data-linggo-view="chat"]) .linggo-cover{display:none;}}`;
 
 const norm = (p) => (p ?? "").replaceAll("\\", "/").replace(/\/+$/, "");
 const presentationProject = (cwd) =>
@@ -1345,13 +1349,28 @@ export function isWorkbenchLocation(loc = location) {
   );
 }
 
+function CompatibleWorkbench(props) {
+  const snapshot = props.useCompatibility((s) => s);
+  const [dismissed, setDismissed] = useState(false);
+  const visible = snapshot.status === "ready" && snapshot.layout?.ok;
+  useEffect(() => {
+    props.onWorkbenchMounted(!!visible);
+    return () => props.onWorkbenchMounted(false);
+  }, [visible]);
+  if (snapshot.status !== "ready" || !snapshot.layout?.ok) return h(CompatibilityNotice, { t: props.t, snapshot, retry: props.retryCompatibility });
+  return h(React.Fragment, null,
+    snapshot.code === "differentBuild" && !dismissed && h("aside", { className: "linggo-root linggo-compat-notice", role: "status" },
+      h("p", null, props.t("compat.differentBuild")),
+      h("button", { onClick: () => setDismissed(true) }, props.t("common.cancel"))),
+    h(Workbench, props));
+}
+
 export function apply(ctx) {
   const enabled = isWorkbenchLocation();
-  ctx.effect(() => installDemoIntroduction(ctx));
   ctx.effect(() => ctx.locale.register(NS, { zh, en }));
   const t = ctx.locale.bind(NS);
 
-  const api = async (operation, payload) => {
+  const rawApi = async (operation, payload) => {
     try {
       const r = await ctx.connection.rpc.call(
         "/api",
@@ -1364,18 +1383,39 @@ export function apply(ctx) {
       throw clientError(operation, error, t);
     }
   };
+  let presentationMounted = false;
+  let refreshPresentationStyle = () => {};
+  const compatibility = createCompatibilityClient(rawApi, { t, clientCapabilities: clientCapabilities(ctx) });
+  const api = compatibility.request;
   const resets = new Set();
-  ctx.on("connection/reset", () => resets.forEach((fn) => fn()));
+  ctx.on("connection/reset", () => { compatibility.reset(); void compatibility.inspect(); resets.forEach((fn) => fn()); });
+  ctx.effect(() => {
+    void compatibility.inspect();
+    const timer = setInterval(() => void compatibility.inspect(), 10000);
+    return () => { clearInterval(timer); compatibility.dispose(); };
+  });
   const onReset = (fn) => {
     resets.add(fn);
     return () => resets.delete(fn);
   };
 
-  const adapter = createClientAdapter(ctx, { api, t });
+  let adapter;
+  try { adapter = createClientAdapter(ctx, { api, t }); } catch (error) {
+    ctx.effect(() => installPresentationStyle(document, style, false));
+    if (ctx.slots?.inject && ctx.slots?.register) ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: "linggo-compatibility", inject: () => ({ t, retry: compatibility.inspect, hooks: { compatibility } }) }, (props) => h(CompatibilityNotice, { ...props, snapshot: props.useCompatibility((s) => s) })));
+    else console.error("LingGo: required client slot APIs unavailable");
+    return;
+  }
+  ctx.effect(() => installDemoIntroduction(ctx));
   const { openSession, newPresentation, capabilities } = adapter;
   const openHandoff = (item, project, state) =>
     adapter.openHandoff(item, project, draftPrompt(t, item, project, state));
-  ctx.effect(() => installPresentationStyle(document, style, enabled));
+  ctx.effect(() => {
+    const dispose = installPresentationStyle(document, style, enabled, { canEnable: () => presentationMounted && compatibility.getSnapshot().status === "ready", onChange: compatibility.setLayout });
+    refreshPresentationStyle = dispose.check;
+    const unsubscribe = compatibility.subscribe(dispose.check);
+    return () => { unsubscribe(); dispose(); };
+  });
 
   if (enabled) {
     adapter.mountWorkbench(
@@ -1387,8 +1427,11 @@ export function apply(ctx) {
         openSession,
         ensureProjectWorkspaces: adapter.ensureProjectWorkspaces,
         prepareQuestion: adapter.prepareQuestion,
+        retryCompatibility: compatibility.inspect,
+        onWorkbenchMounted: (value) => { presentationMounted = value; refreshPresentationStyle(); },
+        hooks: { compatibility },
       },
-      Workbench,
+      CompatibleWorkbench,
     );
   } else {
     adapter.mountDevelopment(

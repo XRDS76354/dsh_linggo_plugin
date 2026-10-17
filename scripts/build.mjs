@@ -1,5 +1,7 @@
 import { build } from "esbuild";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { syncCompatibility } from "./sync-compat.mjs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { resolve } from "node:path";
 
@@ -27,8 +29,14 @@ const configs = [{
 }];
 
 export async function buildPlugin({ check = false } = {}) {
+  const config = await syncCompatibility();
+  const hash = createHash("sha256");
+  for (const name of ["package.json", "compatibility.json", ...(await readdir(new URL("../src/", import.meta.url))).sort().map((f) => `src/${f}`)]) {
+    hash.update(name).update((await readFile(new URL(`../${name}`, import.meta.url), "utf8")).replace(/\r\n/g, "\n"));
+  }
+  const metadata = { version: config.pluginVersion, protocol: config.protocol, build: hash.digest("hex").slice(0, 16) };
   for (const config of configs) {
-    const result = await build({ ...config, absWorkingDir: root, write: !check });
+    const result = await build({ ...config, define: { __LINGGO_BUILD__: JSON.stringify(metadata) }, absWorkingDir: root, write: !check });
     if (check) {
       for (const file of result.outputFiles) {
         const saved = await readFile(file.path).catch(() => null);

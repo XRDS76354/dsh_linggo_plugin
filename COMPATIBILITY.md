@@ -1,23 +1,27 @@
-# Compatibility
+<!-- linggo-compat: 0.2.0-rc.2 || 0.2.1-alpha.1 || >=0.2.1-rc.1 <0.2.2-0; runtimes: 0.2.0-rc.2, 0.2.1-alpha.1, 0.2.1-rc.1 -->
+# Compatibility — 0.1.1-alpha.3
 
-- Declared DSH versions: `0.2.0-rc.2 || 0.2.1-alpha.1`. The original source baseline remains `5badb15009`; rc.2 official baseline is `639ed01`. No later version is assumed compatible.
-- Integration uses capability detection: alpha.1 has generation-safe native draft initialization; rc.2 uses an explicit copy/paste handoff. Both preserve existing drafts and never submit automatically.
-- Development dependencies remain pinned to alpha.1. Client service owners are optional peers supplied by the Host. Exact version matrix tests use separate official runtime installations.
-- Tested Hosts: macOS, Node.js 22.23.1, official npm DSH 0.2.0-rc.2 and 0.2.1-alpha.1, Microsoft Edge. The alpha.2 compatibility matrix uses a local deterministic model fixture, not an external model provider. See [dual-version verification](docs/compatibility.md).
-- Verified in the browser: three-column workbench, native conversation with real model streaming and tool records, tool restriction, development handoff into a native draft, session reuse, narrow layout, Host restart and uninstall. See [docs/verification.md](docs/verification.md).
-- Stage 2 (data import, versions, canvas map, agent query/map tools) verified in the browser with a Python 3.13 venv created by `npm run setup:python`. AMap whitesmoke tiles are now verified in both official Web runtimes. Baidu JSAPI 4.0 has contract/failure tests; live verification awaits a locally configured browser AK. PostGIS runtime verification remains pending. The worker requires Python 3.10+.
-- Stage 3 (DRT insertion, fleet assignment, trip generation, confirmed runs, result replay, user Python algorithms, runtime Skills) verified in the browser on local transit data: batch preview → confirm → run → indicators → replay, plus a real model turn that proposed a run, read the results and replayed the better one on the map. `npm test` 15, `npm run test:python` 32. Travel times are straight-line × detour factor ÷ speed, not road-network shortest paths; unverified items are listed in [docs/verification.md](docs/verification.md#已知限制).
-- Desktop app: installed version is 0.2.0-rc.2; native desktop UI and protocol launch are not independently verified. Web compatibility for that official runtime is tested separately. The desktop → browser link uses `webServer.port` and `connection.authenticatedUrl`.
-- Windows: `0.1.1-alpha.2` passes Node/Python regression tests, isolated official rc.2 package/Git installs, Host activation and Edge workbench/GTFS smoke checks. The Git test uses a local snapshot of the pending changes; the remote GitHub repository is not updated by this task. Both declared DSH versions pass installer compatibility and real tool-guard tests. Native Desktop window/protocol behavior remains unverified. See [Windows verification](docs/verification.md#windows-安装与数据通信修复).
-- Linux: a CI job is configured; this release does not claim a completed Linux machine/CI run.
-- Stage 4 packaging: a fresh `DSH_HOME` install from the `npm pack` tarball was verified on macOS (31 files, ~300 KB, no data or credentials), including the packaged worker run through the isolated venv created by `scripts/setup-python.mjs` (pandas 3.0.6) and a browser boot. `dsh plugin add` needs pnpm on PATH (`corepack enable pnpm` if absent).
-- Python dependencies are resolved at setup time from public indexes; the worker needs Python 3.10+. The Python test suite passes on pandas 3.x as well as the development environment's 2.x.
-- No upstream fork or source patch is required.
+- Source of truth: `compatibility.json`; run `npm run check:compat` to verify manifest/docs, `npm run sync:compat` after deliberate policy changes.
+- `engines.dsh` and optional DSH peers share the bounded range above. Current target matrix: `0.2.0-rc.2`, `0.2.1-alpha.1`, `0.2.1-rc.1`. Future matching builds are allowed attempts, not verified releases. The installer includes prereleases in comparisons; `0.2.2-0` and later remain excluded.
+- New baseline: the immutable official `dsh-v0.2.1-rc.1` release (`1600d8a`), not moving master. Old baselines remain `639ed01` / `5badb15009`.
+- Runtime dependencies are supplied by the Host; React is external and DSH packages are not bundled. Missing `tools.guard/register` or authenticated transport stops business activation. Draft initialization is capability-based; absent initialization falls back to explicit copy/paste and never submits.
+- The read-only compatibility endpoint reports plugin/protocol/build IDs and callable API availability. Settings copies only those fields, never credentials or data paths. A differing build with compatible protocol is advisory; absent endpoint, protocol mismatch, or missing required APIs pauses new writes. No write is retried automatically.
+- Existing layout remains a guarded DOM adaptation. A recognized frame is tagged before scoped styles apply; loss or ambiguity removes tags and releases native layout. This reduces damage on drift, not the need for visual regression.
+- Official update/reload is preferred. Restart only when the Host remains stale or requests it; a browser reload alone cannot replace a cached Host module. HMR behavior is not assumed from a version number.
+- JS/Python and isolated official installer/Host/Web results and remaining limitations are recorded in [verification](docs/compatibility.md#2026-10-17-兼容维护修复).
+- Native Desktop window behavior is distinct from Web. Windows/Linux CI configuration does not imply a completed machine or GitHub run. AMap/Baidu external services and PostGIS are not newly verified.
+- No upstream patch, version exemption, data migration, or automatic GitHub publication. The `conversation.content` Factory is a later integration path; this release does not mount another composer or copy Chat implementation.
 
-Extension points used: `shell.overlay`, `main`, `sidebar.panellist`, `uiWorkspace.openSession/openWorkspace`, `sessions.create/using/binding`, `workspaces.create/rename`, `conversation.input.requestDraftInitialization`, `tools.guard/register`, agent `tools.restrict`, agent `systemPrompt` sections, and the Connection fetch envelope.
+## Reproduce
 
-Workbench-only CSS adapts the stock frame through the `[data-rightbar-col]` anchor, the frame's child order (sidebar, center, rightbar) and `[data-side]` drag handles. These selectors must be checked visually on every DSH upgrade. The stock Chat implementation is not copied.
+```sh
+npm ci
+npm run build
+LINGGO_TEST_PYTHON=/path/to/python LINGGO_REQUIRE_PYTHON=1 npm test
+PYTHONPATH=python /path/to/python -m unittest discover -s python/tests
+npm run test:compat -- --smoke /path/to/rc2 /path/to/alpha1 /path/to/rc1
+npm run compat:upstream -- 0.2.1-rc.1
+npm run pack:release
+```
 
-UI/map release `0.1.1-alpha.1`: own layout preferences, resizable/collapsible panes, retained native conversation, provider adapters and virtual route list. See [UI upgrade record](docs/workbench-ui.md) for exact viewport/provider coverage and remaining limits. Native desktop, Windows/Linux and future DSH versions are not newly claimed.
-
-真实线网地图演示和 DRT v2 的两版 tarball / Web 回归记录见 [兼容文档](docs/compatibility.md#2026-10-11-真实线网地图演示回归)。无模型凭据、地图密钥和 Python 时预设仍可用；原生桌面窗口及 Windows/Linux 本轮未重新验收。
+`--install --smoke` installs the configured exact official runtimes under ignored `.local/compat/`; it never replaces the user's Host. Browser scripts must use isolated homes and the local deterministic provider. Rollback only to a plugin accepted by that Host; alpha.2 remains incompatible with rc.1. Never downgrade or rewrite Session logs as a plugin rollback step.

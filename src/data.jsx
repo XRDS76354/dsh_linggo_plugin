@@ -1,3 +1,4 @@
+import { CompatibilitySettings } from "./compatibility-ui.jsx";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { SideSection, useSectionState } from "./workbench-ui.jsx";
 import {
@@ -831,6 +832,7 @@ export function SettingsView({ t, api }) {
     "div",
     { style: { maxWidth: 640 } },
     h("h2", null, t("set.title")),
+    h(CompatibilitySettings, { t, api }),
     h("h3", null, t("set.python")),
     env
       ? env.ok

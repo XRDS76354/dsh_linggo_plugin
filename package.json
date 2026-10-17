@@ -1,11 +1,12 @@
 {
   "name": "dsh-linggo-plugin",
-  "version": "0.1.1-alpha.2",
+  "version": "0.1.1-alpha.3",
   "description": "LingGo transit workbench for DeepSeek Harness",
   "type": "module",
   "license": "MIT",
   "engines": {
-    "node": ">=22.19.0"
+    "node": ">=22.19.0",
+    "dsh": "0.2.0-rc.2 || 0.2.1-alpha.1 || >=0.2.1-rc.1 <0.2.2-0"
   },
   "exports": {
     ".": "./lib/index.js",
@@ -41,7 +42,8 @@
     "docs/workbench-ui.md",
     "demo/*.json",
     "docs/compose/spec/demo-minimal-drt-v2.md",
-    "docs/compose/spec/data-management-batch-import.md"
+    "docs/compose/spec/data-management-batch-import.md",
+    "compatibility.json"
   ],
   "scripts": {
     "build": "node scripts/build.mjs",
@@ -53,19 +55,23 @@
     "setup:python": "node scripts/setup-python.mjs",
     "test:compat": "node scripts/test-compat.mjs",
     "demo:generate": "python3 scripts/generate-demo.py",
-    "demo:check": "python3 scripts/generate-demo.py --check"
+    "demo:check": "python3 scripts/generate-demo.py --check",
+    "sync:compat": "node scripts/sync-compat.mjs --write",
+    "check:compat": "node scripts/sync-compat.mjs",
+    "compat:upstream": "node scripts/check-upstream.mjs"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "*",
-    "@deepseek-ai/dsh-api-session-controller": "0.2.0-rc.2 || 0.2.1-alpha.1",
-    "@deepseek-ai/dsh-api-workspace-controller": "0.2.0-rc.2 || 0.2.1-alpha.1",
-    "@deepseek-ai/dsh-client-connection": "0.2.0-rc.2 || 0.2.1-alpha.1",
-    "@deepseek-ai/dsh-client-ui-conversation": "0.2.0-rc.2 || 0.2.1-alpha.1",
-    "@deepseek-ai/dsh-client-ui-layout": "0.2.0-rc.2 || 0.2.1-alpha.1",
-    "@deepseek-ai/dsh-client-ui-slots": "0.2.0-rc.2 || 0.2.1-alpha.1",
-    "@deepseek-ai/dsh-client-ui-workspace": "0.2.0-rc.2 || 0.2.1-alpha.1",
-    "@deepseek-ai/dsh-tools": "0.2.0-rc.2 || 0.2.1-alpha.1",
-    "@deepseek-ai/dsh-llm": "0.2.0-rc.2 || 0.2.1-alpha.1"
+    "@deepseek-ai/dsh-api-session-controller": "0.2.0-rc.2 || 0.2.1-alpha.1 || >=0.2.1-rc.1 <0.2.2-0",
+    "@deepseek-ai/dsh-api-workspace-controller": "0.2.0-rc.2 || 0.2.1-alpha.1 || >=0.2.1-rc.1 <0.2.2-0",
+    "@deepseek-ai/dsh-client-connection": "0.2.0-rc.2 || 0.2.1-alpha.1 || >=0.2.1-rc.1 <0.2.2-0",
+    "@deepseek-ai/dsh-client-ui-conversation": "0.2.0-rc.2 || 0.2.1-alpha.1 || >=0.2.1-rc.1 <0.2.2-0",
+    "@deepseek-ai/dsh-client-ui-layout": "0.2.0-rc.2 || 0.2.1-alpha.1 || >=0.2.1-rc.1 <0.2.2-0",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.0-rc.2 || 0.2.1-alpha.1 || >=0.2.1-rc.1 <0.2.2-0",
+    "@deepseek-ai/dsh-client-ui-workspace": "0.2.0-rc.2 || 0.2.1-alpha.1 || >=0.2.1-rc.1 <0.2.2-0",
+    "@deepseek-ai/dsh-tools": "0.2.0-rc.2 || 0.2.1-alpha.1 || >=0.2.1-rc.1 <0.2.2-0",
+    "@deepseek-ai/dsh-llm": "0.2.0-rc.2 || 0.2.1-alpha.1 || >=0.2.1-rc.1 <0.2.2-0",
+    "@deepseek-ai/dsh-app-boot": "0.2.0-rc.2 || 0.2.1-alpha.1 || >=0.2.1-rc.1 <0.2.2-0"
   },
   "devDependencies": {
     "@baidumap/jsapi-loader": "1.0.0",
@@ -101,6 +107,9 @@
       "optional": true
     },
     "@deepseek-ai/dsh-llm": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-app-boot": {
       "optional": true
     }
   }
