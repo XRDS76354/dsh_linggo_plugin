@@ -10,7 +10,7 @@ import traceback
 import time
 from pathlib import Path
 from urllib.parse import urlsplit
-from playwright.sync_api import sync_playwright, expect
+from playwright.sync_api import TimeoutError as PlaywrightTimeout, sync_playwright, expect
 
 p = argparse.ArgumentParser()
 p.add_argument("log")
@@ -36,10 +36,13 @@ def run():
         page.goto(url + "#linggo=1")
         page.locator(".linggo-workspace").wait_for(timeout=30000)
         page.get_by_title("新建项目", exact=True).first.wait_for()
-        page.wait_for_timeout(1500)
-        # A clean browser must acknowledge DSH's own preview notice before editing any form.
+        # DSH can mount the preview notice after LingGo's first render.
         notice = page.get_by_role("heading", name="预览版说明", exact=True)
-        if notice.count():
+        try:
+            notice.wait_for(timeout=6000)
+        except PlaywrightTimeout:
+            pass  # A Host without the notice can proceed normally.
+        else:
             page.get_by_role("button", name="继续", exact=True).click()
             notice.wait_for(state="hidden")
         name = "Compatibility fixture " + str(time.time_ns())
@@ -47,7 +50,13 @@ def run():
         page.get_by_placeholder("新项目名称（城市或区域）").fill(name)
         page.get_by_role("button", name="创建项目", exact=True).click()
         expect(page.get_by_label("当前项目").locator("option:checked")).to_have_text(name)
-        page.locator('[data-section="sessions"]').get_by_role("button", name="新建展示会话", exact=True).click()
+        new_session = page.locator('[data-section="sessions"]').get_by_role("button", name="新建展示会话", exact=True)
+        try:
+            new_session.click(timeout=12000)
+        except PlaywrightTimeout:
+            page.screenshot(path=str(Path(args.shots, "new-session-blocked.png")))
+            print("Host dialogs:", page.get_by_role("dialog").all_inner_texts())
+            raise
         box = page.locator('[role=textbox][contenteditable=true]').filter(visible=True).first
         box.wait_for(timeout=15000)
         page.wait_for_function("!document.documentElement.hasAttribute('data-linggo-blocked')")
@@ -110,21 +119,28 @@ def run():
         dev.get_by_role("heading", name="LingGo 公交工作台", exact=True).wait_for()
         assert not dev.evaluate("document.documentElement.hasAttribute('data-linggo')")
         card = dev.locator("article.linggo-card").filter(has_text=name).filter(has_text="COMPAT_HANDOFF_REVIEW")
+        def click_handoff(label):
+            # The draft may render before the Host has persisted the linked session ID.
+            with dev.expect_response(lambda response: urlsplit(response.url).path == "/api/linggo.handoffOpened") as pending:
+                card.get_by_role("button", name=label, exact=True).click()
+            response = pending.value
+            assert response.ok and response.json()["result"]["ok"], "Host did not record the development session"
+
         if args.legacy:
             card.get_by_text("当前 DSH 不支持安全预填草稿。", exact=False).wait_for()
             card.get_by_role("button", name="复制交接内容", exact=True).click()
             copied = dev.evaluate("navigator.clipboard.readText()")
             assert "COMPAT_HANDOFF_REVIEW" in copied
-            card.get_by_role("button", name="打开开发会话", exact=True).click()
+            click_handoff("打开开发会话")
             draft = dev.locator('[role=textbox][contenteditable=true]').filter(visible=True).first
             draft.wait_for()
             assert "COMPAT_HANDOFF_REVIEW" not in draft.inner_text(), "Legacy fallback mutated the composer"
             draft.fill(copied)
         else:
-            card.get_by_role("button", name="打开开发会话并填入草稿", exact=True).click()
+            click_handoff("打开开发会话并填入草稿")
             draft = dev.locator('[role=textbox][contenteditable=true]').filter(visible=True).first
             draft.wait_for()
-            assert "COMPAT_HANDOFF_REVIEW" in draft.inner_text()
+            expect(draft).to_contain_text("COMPAT_HANDOFF_REVIEW")
         assert not dev.get_by_role("button", name=re.compile("停止|Stop")).filter(visible=True).count(), "Handoff was automatically sent"
         draft.fill("EXISTING_UNSENT_DRAFT")
         state = json.loads(Path(args.home, "linggo/state.json").read_text())
@@ -133,7 +149,7 @@ def run():
         dev.get_by_role("button", name="公交工作台", exact=True).first.click()
         dev.locator("article.linggo-card").filter(has_text=name).filter(has_text="COMPAT_HANDOFF_REVIEW").get_by_role("button", name="回到开发会话", exact=True).click()
         draft.wait_for()
-        assert draft.inner_text() == "EXISTING_UNSENT_DRAFT"
+        expect(draft).to_have_text("EXISTING_UNSENT_DRAFT")
         dev.screenshot(path=str(Path(args.shots, "development.png")))
         assert not errors, errors
         browser.close()

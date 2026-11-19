@@ -115,7 +115,7 @@ for (const directory of roots) {
   if (!expected.delete(version) && !(single && args.includes('--candidate'))) throw Error(`Unexpected or duplicate runtime: ${version}`);
   const { evaluatePluginCompatibility } = await import(pathToFileURL(require.resolve('@deepseek-ai/dsh-app-boot')));
   for (const accepted of config.runtimes) if (evaluatePluginCompatibility(manifest, {}, accepted)) throw Error(`Manifest refused by installer ${version} for ${accepted}`);
-  for (const rejected of ['0.2.1-alpha.2', '0.2.0-rc.1', '0.2.2-alpha.1', '0.2.2-rc.1', '0.2.2-rc.2', '0.2.2-rc.3', '0.2.2-rc.4', '0.2.2-rc.6', '0.2.2', '0.3.0']) if (!evaluatePluginCompatibility(manifest, {}, rejected)) throw Error(`Unexpected admission of ${rejected}`);
+  for (const rejected of ['0.2.1-alpha.2', '0.2.0-rc.1', '0.2.2-alpha.1', '0.2.2-alpha.3', '0.2.2-beta.1', '0.2.2-rc.0', '0.2.2-rc.1.1', '0.2.2-rc.5.1', '0.2.2-rc.6', '0.2.2', '0.2.3-rc.1', '0.3.0']) if (!evaluatePluginCompatibility(manifest, {}, rejected)) throw Error(`Unexpected admission of ${rejected}`);
   for (const candidate of ['0.2.1-rc.2', '0.2.1']) if (evaluatePluginCompatibility(manifest, {}, candidate)) throw Error(`Bounded range did not admit ${candidate}`);
   const packages = ['@deepseek-ai/cordis', '@deepseek-ai/dsh-system-prompt', '@deepseek-ai/dsh-tools'];
   const { default: Tools } = await import(pathToFileURL(require.resolve('@deepseek-ai/dsh-tools')));

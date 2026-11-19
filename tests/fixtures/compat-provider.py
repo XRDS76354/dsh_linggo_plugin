@@ -86,4 +86,6 @@ class Handler(BaseHTTPRequestHandler):
             pass
 
 
-ThreadingHTTPServer(("127.0.0.1", args.port), Handler).serve_forever()
+with ThreadingHTTPServer(("127.0.0.1", args.port), Handler) as server:
+    print(f"port={server.server_port}", flush=True)
+    server.serve_forever()

@@ -9,7 +9,7 @@ out=Path(a.shots);out.mkdir(parents=True,exist_ok=True)
 with sync_playwright() as pw:
  browser=pw.chromium.launch(channel='msedge',headless=True);context=browser.new_context(locale='zh-CN',viewport={'width':1440,'height':900});page=context.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
  page.goto(url+'#linggo=1');page.locator('.linggo-workspace').wait_for(timeout=30000)
- assert page.locator('[data-linggo-frame]').count()==1
+ expect(page.locator('[data-linggo-frame]')).to_have_count(1, timeout=10000)
  # A client connected to an old Host must leave the native page intact.
  page.route('**/api/linggo.compatibility',lambda r:r.fulfill(status=404,body='Not found'))
  page.reload();page.get_by_text('当前后台尚未加载兼容诊断接口',exact=False).wait_for();assert not page.evaluate("document.documentElement.hasAttribute('data-linggo')")

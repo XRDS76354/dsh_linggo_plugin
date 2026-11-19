@@ -6,7 +6,7 @@
 
 ## 开发安装
 
-插件要求 Node.js 22.19+。已验证的官方 DSH 版本为 `0.2.0-rc.2`、`0.2.1-alpha.1`、`0.2.1-rc.1` 和 `0.2.2-rc.5`。通过 npm 单独安装 `0.2.2-rc.5` 宿主时使用 Node.js 24.9+；使用桌面版则使用其自带运行环境。无需修改 DSH 源码。
+插件要求 Node.js 22.19+。已验证的官方 DSH 版本为 `0.2.0-rc.2`、`0.2.1-alpha.1`、`0.2.1-rc.1` 和 `0.2.2-rc.1` 至 `0.2.2-rc.5`。通过 npm 单独安装 `0.2.2` 系列宿主时使用 Node.js 24.9+；使用桌面版则使用其自带运行环境。无需修改 DSH 源码。
 
 GitHub 仓库随附 `lib/index.js` 和 `lib/client.js`，插件管理器安装时直接使用这些构建文件，不运行 `prepare` 或安装构建脚本。修改源码后须重新构建并一同提交 `lib/`；CI 在 Windows/Linux 上通过 `npm run check:build` 检查一致性。
 
@@ -118,7 +118,7 @@ npm run pack:release
 从发行包安装（不经源码目录）：
 
 ```sh
-dsh plugin --profile <profile> add ./dsh-linggo-plugin-0.1.1-alpha.4.tgz
+dsh plugin --profile <profile> add ./dsh-linggo-plugin-0.1.1-alpha.5.tgz
 export DSH_HOME=<该 profile 的 DSH_HOME>
 node <安装目录>/node_modules/dsh-linggo-plugin/scripts/setup-python.mjs
 ```
@@ -142,7 +142,7 @@ dsh --profile linggo-win --port 3180 --no-open
 Set-Location "C:\Projects\dsh_linggo_plugin"
 npm ci
 npm run pack:release
-dsh plugin --profile linggo-win add "C:\Projects\dsh_linggo_plugin\dsh-linggo-plugin-0.1.1-alpha.4.tgz"
+dsh plugin --profile linggo-win add "C:\Projects\dsh_linggo_plugin\dsh-linggo-plugin-0.1.1-alpha.5.tgz"
 # 源码目录也可安装：dsh plugin --profile linggo-win add "C:\Projects\dsh_linggo_plugin"
 dsh --profile linggo-win --port 3180 --no-open
 ```
@@ -173,16 +173,16 @@ CPTOND 与地区原始数据不随插件分发，也不因此获得再分发授�
 
 `src/compat-client.js` 集中封装工作区、展示会话、开发交接和页面挂载；`src/compat-host.js` 检查权限守卫及认证连接能力。草稿功能按实际 API 检测，不按版本号猜测。旧版不调用 `setDraft` 覆盖原生输入，不通过 DOM 或 localStorage 注入内容。
 
-兼容配置统一保存在 `compatibility.json`。`engines.dsh` 与可选 DSH peers 采用同一有上限范围，保留原有声明范围，`0.2.2` 系列仅放行精确的 `0.2.2-rc.5`。原范围内未进入测试矩阵的版本仅允许尝试，不代表已验收。DSH/Cordis 及客户端服务所属包列为可选 peer（由 DSH 提供）；缺少必要 API 会明确拒绝启用。缺少 Host `tools.guard` 时不注册业务工具或接口。新增版本须在独立运行目录和独立 `DSH_HOME` 验证，不能替换正在运行的宿主依赖。
+兼容配置统一保存在 `compatibility.json`。`engines.dsh` 与可选 DSH peers 采用同一有上限范围，保留原有声明范围，`0.2.2` 系列仅放行已验收的 `rc.1`、`rc.2`、`rc.3`、`rc.4`、`rc.5` 五个精确版本。原范围内未进入测试矩阵的版本仅允许尝试，不代表已验收。DSH/Cordis 及客户端服务所属包列为可选 peer（由 DSH 提供）；缺少必要 API 会明确拒绝启用。缺少 Host `tools.guard` 时不注册业务工具或接口。新增版本须在独立运行目录和独立 `DSH_HOME` 验证，不能替换正在运行的宿主依赖。
 
 ```sh
 npm run build
 LINGGO_TEST_PYTHON=/absolute/path/to/python npm test
 npm run check:compat
-npm run test:compat -- --smoke /absolute/path/to/rc2-runtime /absolute/path/to/alpha1-runtime /absolute/path/to/rc1-runtime /absolute/path/to/rc5-runtime
+npm run test:compat -- --single --smoke /absolute/path/to/0.2.2-rc.1/runtime
 ```
 
-四处 runtime 应分别通过官方 npm 包安装精确版本。`test:compat` 验证官方兼容检查及真实工具执行守卫；`--smoke` 额外在临时 home 验证 tarball 安装、启用、认证诊断、重启、卸载及业务状态保留；页面挂载、交接、流式对话和停止另用 `scripts/browser-compat.py` 检查。兼容范围不是对未来 DSH 版本的承诺，新增版本须补充证据。
+runtime 必须通过官方 npm 包安装精确版本。`test:compat` 验证安装器及真实工具守卫；`--smoke` 额外验证 tarball 安装、启用、认证、重启、卸载及状态保留。`scripts/test-compat-web.py` 用隔离 profile 和本地模型运行端到端验收；复现方法及逐版结果见[兼容说明](COMPATIBILITY.md)。兼容范围不是对未来版本的承诺。
 
 ## 后续阶段
 
@@ -208,10 +208,10 @@ npm run test:compat -- --smoke /absolute/path/to/rc2-runtime /absolute/path/to/a
 
 `0.1.1-alpha.3` 增加只读兼容握手及设置页摘要。缺少必要安全接口时拒绝业务初始化；协议不匹配或旧后台没有诊断接口时暂停新写操作，不自动重试导入、删除、运行。构建标识不同但协议和所需能力兼容时可继续使用。摘要不包含路径、业务数据、模型或地图凭据。
 
-从 `0.1.1-alpha.3` 升级至 `0.1.1-alpha.4` 时，先备份 `$DSH_HOME/linggo`，然后在插件管理器安装本地 `.tgz`。若走 CLI，先完整退出正在使用该 profile 的 DSH，再执行 `dsh plugin --profile <profile> add /absolute/path/to/dsh-linggo-plugin-0.1.1-alpha.4.tgz`（桌面 profile 默认名为 `desktop`）。可直接替换旧插件，不需要先卸载或重建 Python 环境。包内已预构建。
+从旧版升级至 `0.1.1-alpha.5` 时，先备份 `$DSH_HOME/linggo`，然后在插件管理器安装本地 `.tgz`。若走 CLI，先完整退出正在使用该 profile 的 DSH，再执行 `dsh plugin --profile <profile> add /absolute/path/to/dsh-linggo-plugin-0.1.1-alpha.5.tgz`（桌面 profile 默认名为 `desktop`）。可直接替换旧插件，不需要先卸载或重建 Python 环境。包内已预构建。
 
-更新后重新打开 DSH，在“公交工作台”进入三栏页，通过设置中的兼容诊断确认插件 `0.1.1-alpha.4` 与宿主 `0.2.2-rc.5`。仅刷新浏览器不能替换已加载的 Host 模块；布局锚点不符合预期时，插件释放三栏样式并保留原生页面。
+更新后重新打开 DSH，在“公交工作台”进入三栏页，通过设置中的兼容诊断确认插件已是 `0.1.1-alpha.5`，宿主版本与所用 DSH 一致。仅刷新浏览器不能替换已加载的 Host 模块；布局锚点不符合预期时，插件释放三栏样式并保留原生页面。
 
-回退前保留兼容诊断和数据备份；仅安装该宿主允许的旧插件包，不删除 `$DSH_HOME/linggo`。旧 `alpha.3` 不支持 `0.2.2-rc.5`，不要在该宿主上强制回退；不建议降级或改写 DSH 会话日志来迁就它。失败安装由官方管理器恢复 profile 依赖。保留的旧包只用于其原先兼容的隔离环境。
+回退前保留兼容诊断和数据备份；仅安装该宿主允许的旧插件包，不删除 `$DSH_HOME/linggo`。`0.2.2-rc.1` 至 `rc.4` 不要回退到 `alpha.4`，它在 `0.2.2` 系列只支持 `rc.5`；不建议降级或改写 DSH 会话日志来迁就它。失败安装由官方管理器恢复 profile 依赖。保留的旧包只用于其原先兼容的隔离环境。
 
-维护者可运行 `npm run compat:upstream -- <精确候选版本>`，只读取官方包、比较 exports 与声明摘要，不执行候选插件代码、不改范围、不发布；随后在隔离 runtime 运行 `test:compat -- --single --candidate`。范围外版本的安装仍被拒绝。CI 的四版矩阵与手动上游检查均已配置，实际结果请核对[对应提交的 Actions](https://github.com/XRDS76354/dsh_linggo_plugin/actions/workflows/verify.yml)。
+维护者可运行 `npm run compat:upstream -- <精确候选版本>`，只读取官方包、比较 exports 与声明摘要，不执行候选插件代码、不改范围、不发布；随后在隔离 runtime 运行 `test:compat -- --single --candidate`。范围外版本的安装仍被拒绝。CI 的八版矩阵与手动上游检查均已配置，实际结果请核对[对应提交的 Actions](https://github.com/XRDS76354/dsh_linggo_plugin/actions/workflows/verify.yml)。
