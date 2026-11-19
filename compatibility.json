@@ -1,15 +1,16 @@
 {
-  "pluginVersion": "0.1.1-alpha.3",
-  "range": "0.2.0-rc.2 || 0.2.1-alpha.1 || >=0.2.1-rc.1 <0.2.2-0",
+  "pluginVersion": "0.1.1-alpha.4",
+  "range": "0.2.0-rc.2 || 0.2.1-alpha.1 || >=0.2.1-rc.1 <0.2.2-0 || 0.2.2-rc.5",
   "protocol": 1,
   "runtimes": [
     "0.2.0-rc.2",
     "0.2.1-alpha.1",
-    "0.2.1-rc.1"
+    "0.2.1-rc.1",
+    "0.2.2-rc.5"
   ],
   "upstream": {
-    "tag": "dsh-v0.2.1-rc.1",
-    "commit": "1600d8a"
+    "tag": "dsh-v0.2.2-rc.5",
+    "commit": "9c2670d"
   },
   "hostPeers": [
     "@deepseek-ai/dsh-api-session-controller",

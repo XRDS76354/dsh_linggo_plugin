@@ -2,11 +2,11 @@
 
 公交工作台插件，目标是把用户自己的公交数据接入地图、DSH 智能体和可替换调度算法。
 
-**基础工作台及最小演示已在 macOS Web 验收；还不是完整公交产品。** 已实现官方 bundle、独立三栏展示页、按项目隔离的展示/开发会话、开发交接、Host 侧工具限制、数据导入向导、不可变数据版本、内置画布、高德灰白与百度浅色地图适配、智能体查询与地图联动、DRT／DRT v2／配车／班次生成四个内置算法、自定义 Python 算法注册、结果回放与五份工作流程 Skills。打包、隔离 Python 初始化与跨平台验证在第四阶段完成。双版本验收见 [兼容记录](docs/compatibility.md)；分阶段验收详见 [验收记录](docs/verification.md) 和 [任务清单](.spec/tasks.md)。随包演示仅包含经白名单检查的八条公共线路、模拟运营需求及最小匿名计算片段，不含全量业务数据或原始身份。
+**基础工作台及最小演示已在 macOS Web 验收；还不是完整公交产品。** 已实现官方 bundle、独立三栏展示页、按项目隔离的展示/开发会话、开发交接、Host 侧工具限制、数据导入向导、不可变数据版本、内置画布、高德灰白与百度浅色地图适配、智能体查询与地图联动、DRT／DRT v2／配车／班次生成四个内置算法、自定义 Python 算法注册、结果回放与五份工作流程 Skills。打包、隔离 Python 初始化与跨平台验证在第四阶段完成。兼容验收见 [兼容记录](docs/compatibility.md)；分阶段验收详见 [验收记录](docs/verification.md) 和 [任务清单](.spec/tasks.md)。随包演示仅包含经白名单检查的八条公共线路、模拟运营需求及最小匿名计算片段，不含全量业务数据或原始身份。
 
 ## 开发安装
 
-要求 Node.js 22.19+（在 Node 22.23.1 验证）、官方 DSH `0.2.0-rc.2`、`0.2.1-alpha.1` 或 `0.2.1-rc.1`。无需修改 DSH 源码。
+插件要求 Node.js 22.19+。已验证的官方 DSH 版本为 `0.2.0-rc.2`、`0.2.1-alpha.1`、`0.2.1-rc.1` 和 `0.2.2-rc.5`。通过 npm 单独安装 `0.2.2-rc.5` 宿主时使用 Node.js 24.9+；使用桌面版则使用其自带运行环境。无需修改 DSH 源码。
 
 GitHub 仓库随附 `lib/index.js` 和 `lib/client.js`，插件管理器安装时直接使用这些构建文件，不运行 `prepare` 或安装构建脚本。修改源码后须重新构建并一同提交 `lib/`；CI 在 Windows/Linux 上通过 `npm run check:build` 检查一致性。
 
@@ -113,12 +113,12 @@ npm run pack:release
 
 `pack:release` 依次构建、检查发行文件并生成 `.tgz`。也可单独运行 `npm run check:build` 检查构建文件是否与源码一致、`npm run check:package` 检查打包内容。后者可直接用 `node scripts/check-package.mjs` 运行，兼容 Windows 的 npm 命令包装器；不会执行打包生命周期脚本。
 
-发行白名单仅包含构建文件、Python 数据模块与依赖清单、Python 初始化脚本、bundle 配置、Skill 文档、算法模板、README、许可证与兼容说明。`check:package` 会拒绝任何白名单外文件，也会拒绝缺少 JS/Python 入口、bundle 配置、初始化脚本或 Skill 文档的包；当前发行包包含双版本兼容、工作台设置与验收说明，不含数据、日志、凭据或本机路径。源码安装使用仓库中的 lockfile。
+发行白名单仅包含构建文件、Python 数据模块与依赖清单、Python 初始化脚本、bundle 配置、Skill 文档、算法模板、README、许可证与兼容说明。`check:package` 会拒绝任何白名单外文件，也会拒绝缺少 JS/Python 入口、bundle 配置、初始化脚本或 Skill 文档的包；当前发行包包含兼容、工作台设置与验收说明，不含数据、日志、凭据或本机路径。源码安装使用仓库中的 lockfile。
 
 从发行包安装（不经源码目录）：
 
 ```sh
-dsh plugin --profile <profile> add ./dsh-linggo-plugin-0.1.1-alpha.3.tgz
+dsh plugin --profile <profile> add ./dsh-linggo-plugin-0.1.1-alpha.4.tgz
 export DSH_HOME=<该 profile 的 DSH_HOME>
 node <安装目录>/node_modules/dsh-linggo-plugin/scripts/setup-python.mjs
 ```
@@ -142,7 +142,7 @@ dsh --profile linggo-win --port 3180 --no-open
 Set-Location "C:\Projects\dsh_linggo_plugin"
 npm ci
 npm run pack:release
-dsh plugin --profile linggo-win add "C:\Projects\dsh_linggo_plugin\dsh-linggo-plugin-0.1.1-alpha.3.tgz"
+dsh plugin --profile linggo-win add "C:\Projects\dsh_linggo_plugin\dsh-linggo-plugin-0.1.1-alpha.4.tgz"
 # 源码目录也可安装：dsh plugin --profile linggo-win add "C:\Projects\dsh_linggo_plugin"
 dsh --profile linggo-win --port 3180 --no-open
 ```
@@ -173,23 +173,23 @@ CPTOND 与地区原始数据不随插件分发，也不因此获得再分发授�
 
 `src/compat-client.js` 集中封装工作区、展示会话、开发交接和页面挂载；`src/compat-host.js` 检查权限守卫及认证连接能力。草稿功能按实际 API 检测，不按版本号猜测。旧版不调用 `setDraft` 覆盖原生输入，不通过 DOM 或 localStorage 注入内容。
 
-兼容配置统一保存在 `compatibility.json`。`engines.dsh` 与可选 DSH peers 采用同一有上限范围，保留两个旧版并允许 `>=0.2.1-rc.1 <0.2.2-0`；范围内未来版本仅允许尝试，不代表已验收。DSH/Cordis 及客户端服务所属包列为可选 peer（由 DSH 提供）；缺少必要 API 会明确拒绝启用。缺少 Host `tools.guard` 时不注册业务工具或接口。新增版本须在独立运行目录和独立 `DSH_HOME` 验证，不能替换正在运行的宿主依赖。
+兼容配置统一保存在 `compatibility.json`。`engines.dsh` 与可选 DSH peers 采用同一有上限范围，保留原有声明范围，`0.2.2` 系列仅放行精确的 `0.2.2-rc.5`。原范围内未进入测试矩阵的版本仅允许尝试，不代表已验收。DSH/Cordis 及客户端服务所属包列为可选 peer（由 DSH 提供）；缺少必要 API 会明确拒绝启用。缺少 Host `tools.guard` 时不注册业务工具或接口。新增版本须在独立运行目录和独立 `DSH_HOME` 验证，不能替换正在运行的宿主依赖。
 
 ```sh
 npm run build
 LINGGO_TEST_PYTHON=/absolute/path/to/python npm test
 npm run check:compat
-npm run test:compat -- --smoke /absolute/path/to/rc2-runtime /absolute/path/to/alpha1-runtime /absolute/path/to/rc1-runtime
+npm run test:compat -- --smoke /absolute/path/to/rc2-runtime /absolute/path/to/alpha1-runtime /absolute/path/to/rc1-runtime /absolute/path/to/rc5-runtime
 ```
 
-三处 runtime 应分别通过官方 npm 包安装精确版本。`test:compat` 验证官方兼容检查及真实工具执行守卫；`--smoke` 额外在临时 home 验证 tarball 安装、启用、认证诊断、卸载及业务状态保留；页面挂载、交接、流式对话、停止和卸载另用 `scripts/browser-compat.py` 检查。兼容范围不是对未来 DSH 版本的承诺，新增版本须补充证据。
+四处 runtime 应分别通过官方 npm 包安装精确版本。`test:compat` 验证官方兼容检查及真实工具执行守卫；`--smoke` 额外在临时 home 验证 tarball 安装、启用、认证诊断、重启、卸载及业务状态保留；页面挂载、交接、流式对话和停止另用 `scripts/browser-compat.py` 检查。兼容范围不是对未来 DSH 版本的承诺，新增版本须补充证据。
 
 ## 后续阶段
 
-1. ~~DSH 集成~~（已完成，桌面待验收）。
+1. ~~DSH 集成~~（已完成；macOS `0.2.2-rc.5` 原生窗口及浏览器联动已验收）。
 2. ~~数据导入、数据版本、地图与质量检查~~（已完成，PostGIS 和百度真实底图待实机验收）。
 3. ~~DRT、常规公交配车/客流班次、实验场景、Python 算法接口和 Skills~~（已完成，见上）。
-4. ~~预构建发行包、隔离 Python 初始化、发行前审计与许可说明~~（已完成）；Windows 安装修复与验证记录见[验收记录](docs/verification.md#windows-安装与数据通信修复)。Linux 实机和原生桌面窗口仍待验收。
+4. ~~预构建发行包、隔离 Python 初始化、发行前审计与许可说明~~（已完成）；Windows 安装修复与验证记录见[验收记录](docs/verification.md#windows-安装与数据通信修复)。Linux 实机与 Windows 原生桌面仍待单独验收。
 
 
 ### 数据清理与智能体批量导入
@@ -208,10 +208,10 @@ npm run test:compat -- --smoke /absolute/path/to/rc2-runtime /absolute/path/to/a
 
 `0.1.1-alpha.3` 增加只读兼容握手及设置页摘要。缺少必要安全接口时拒绝业务初始化；协议不匹配或旧后台没有诊断接口时暂停新写操作，不自动重试导入、删除、运行。构建标识不同但协议和所需能力兼容时可继续使用。摘要不包含路径、业务数据、模型或地图凭据。
 
-先用官方插件管理器更新／重载；若诊断仍指向旧后台或宿主提示重启，再完整退出 DSH 并重新打开工作台。仅刷新浏览器不能替换已加载的 Host 模块。布局锚点不符合预期时释放三栏样式并保留原生页面；本轮不替换现有布局接法。
+从 `0.1.1-alpha.3` 升级至 `0.1.1-alpha.4` 时，先备份 `$DSH_HOME/linggo`，然后在插件管理器安装本地 `.tgz`。若走 CLI，先完整退出正在使用该 profile 的 DSH，再执行 `dsh plugin --profile <profile> add /absolute/path/to/dsh-linggo-plugin-0.1.1-alpha.4.tgz`（桌面 profile 默认名为 `desktop`）。可直接替换旧插件，不需要先卸载或重建 Python 环境。包内已预构建。
 
-本地安装：`dsh plugin --profile <profile> add /absolute/path/to/dsh-linggo-plugin-0.1.1-alpha.3.tgz`，也可在插件管理器使用本地包路径。交付包已预构建，不需要安装时执行构建脚本。GitHub main 已同步兼容修复。
+更新后重新打开 DSH，在“公交工作台”进入三栏页，通过设置中的兼容诊断确认插件 `0.1.1-alpha.4` 与宿主 `0.2.2-rc.5`。仅刷新浏览器不能替换已加载的 Host 模块；布局锚点不符合预期时，插件释放三栏样式并保留原生页面。
 
-回退前保留兼容诊断和数据备份；仅安装该宿主允许的旧插件包，不删除 `$DSH_HOME/linggo`。旧 `alpha.2` 不支持 `0.2.1-rc.1`，因此不能作为当前新版宿主的强制回退包；不建议降级或改写 DSH 会话日志来迁就它。失败安装由官方管理器恢复 profile 依赖。保留的旧包只用于其原先兼容的隔离环境。
+回退前保留兼容诊断和数据备份；仅安装该宿主允许的旧插件包，不删除 `$DSH_HOME/linggo`。旧 `alpha.3` 不支持 `0.2.2-rc.5`，不要在该宿主上强制回退；不建议降级或改写 DSH 会话日志来迁就它。失败安装由官方管理器恢复 profile 依赖。保留的旧包只用于其原先兼容的隔离环境。
 
-维护者可运行 `npm run compat:upstream -- <精确候选版本>`，只读取官方包、比较 exports 与声明摘要，不执行候选插件代码、不改范围、不发布；随后在隔离 runtime 运行 `test:compat -- --single --candidate`。范围外版本的安装仍被拒绝。CI 的三版矩阵与手动上游检查均已配置，实际结果请核对[对应提交的 Actions](https://github.com/XRDS76354/dsh_linggo_plugin/actions/workflows/verify.yml)。
+维护者可运行 `npm run compat:upstream -- <精确候选版本>`，只读取官方包、比较 exports 与声明摘要，不执行候选插件代码、不改范围、不发布；随后在隔离 runtime 运行 `test:compat -- --single --candidate`。范围外版本的安装仍被拒绝。CI 的四版矩阵与手动上游检查均已配置，实际结果请核对[对应提交的 Actions](https://github.com/XRDS76354/dsh_linggo_plugin/actions/workflows/verify.yml)。
